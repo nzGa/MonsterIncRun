@@ -1,0 +1,16 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="Assets\Scripts\Rotar.cs">
+    <Files>
+      <File FileName="Assets\Scripts\MouseOrbitCamera.cs" Line="69" Column="90" />
+      <File FileName="Assets\Scripts\ThirdPersonControllerSP.cs" Line="1" Column="1" />
+      <File FileName="Assets\Standard Assets\Character Controllers\Sources\Scripts\ThirdPersonController.js" Line="1" Column="1" />
+      <File FileName="Assets\Scripts\GameGUI.cs" Line="41" Column="34" />
+      <File FileName="Assets\Scripts\Rotar.cs" Line="20" Column="53" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>
