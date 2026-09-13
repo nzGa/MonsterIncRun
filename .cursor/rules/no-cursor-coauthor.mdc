@@ -1,0 +1,12 @@
+---
+description: Never attribute Cursor as author, co-author, or collaborator
+alwaysApply: true
+---
+
+# Attribution
+
+Do not list Cursor (or any AI/tool) as author, co-author, or collaborator.
+
+- Git commits: no `Co-authored-by: Cursor` (or similar) trailer
+- README, credits, license, GitHub: only the human author
+- Do not add Cursor as a GitHub collaborator
