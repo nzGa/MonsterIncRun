@@ -15,8 +15,9 @@ public class ControlCursor : MonoBehaviour
 
     void Update()
     {
-        if (scriptMultiJugador == null)
+        var multi = scriptMultiJugador != null ? scriptMultiJugador : GestionaMultiJugador.Instancia;
+        if (multi == null)
             return;
-        scriptMultiJugador.AplicarCursor();
+        multi.AplicarCursor();
     }
 }

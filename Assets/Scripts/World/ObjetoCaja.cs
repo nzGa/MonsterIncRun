@@ -13,7 +13,7 @@ public class ObjetoCaja : MonoBehaviour {
 		//0: zoquete
 		//1: casco
 		//2: zapato
-		Item = Random.Range (0, 3);
+		Item = UnityEngine.Random.Range (0, 3);
 	}
 
 	// Use this for initialization
