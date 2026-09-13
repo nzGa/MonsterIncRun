@@ -16,28 +16,51 @@ public class MouseOrbit : MonoBehaviour
 
     void Start()
     {
-        if (Camera.main == null)
-        {
-            enabled = false;
+        ResolverCamara();
+        if (_mainCamera == null)
             return;
-        }
 
-        _mainCamera = Camera.main.transform;
         Vector3 angles = _mainCamera.eulerAngles;
         _mouseX = angles.y;
         _mouseY = angles.x;
         _relativeDistance = cameraIniDistance;
+        AplicarTransformCamara();
     }
 
     void LateUpdate()
     {
-        if (_mainCamera == null || Cursor.lockState != CursorLockMode.Locked)
+        if (_mainCamera == null)
+            ResolverCamara();
+        if (_mainCamera == null)
             return;
 
-        _mouseX += Input.GetAxis("Mouse X") * xSpeed * 0.02f;
-        _mouseY -= Input.GetAxis("Mouse Y") * ySpeed * 0.02f;
-        _mouseY = ClampAngle(_mouseY, yMinLimit, yMaxLimit);
+        if (PuedeOrbitar())
+        {
+            _mouseX += Input.GetAxis("Mouse X") * xSpeed * 0.02f;
+            _mouseY -= Input.GetAxis("Mouse Y") * ySpeed * 0.02f;
+            _mouseY = ClampAngle(_mouseY, yMinLimit, yMaxLimit);
+        }
 
+        AplicarTransformCamara();
+    }
+
+    static bool PuedeOrbitar()
+    {
+        if (!GestionaMultiJugador.ControlJugadorActivo)
+            return false;
+        if (Application.isEditor && Cursor.lockState != CursorLockMode.Locked)
+            return Input.GetMouseButton(1);
+        return true;
+    }
+
+    void ResolverCamara()
+    {
+        if (Camera.main != null)
+            _mainCamera = Camera.main.transform;
+    }
+
+    void AplicarTransformCamara()
+    {
         Quaternion rotation = Quaternion.Euler(_mouseY, _mouseX, 0);
         Vector3 position = rotation * new Vector3(0f, alturaOjos, -_relativeDistance) + transform.position;
         _mainCamera.rotation = rotation;
