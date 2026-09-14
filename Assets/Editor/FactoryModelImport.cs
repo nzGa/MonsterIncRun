@@ -150,16 +150,34 @@ public class FactoryModelImport : AssetPostprocessor
         bool esMetal = string.Equals(nombre, "metal", StringComparison.OrdinalIgnoreCase);
         if (!esPipe && !esMetal)
             return;
-        if (mat.HasProperty("_MainTex") && mat.mainTexture != null)
-            return;
 
         var tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/metal.jpg");
-        if (tex == null)
-            return;
+        if (tex != null && mat.HasProperty("_MainTex") && mat.mainTexture != tex)
+        {
+            mat.mainTexture = tex;
+            if (esPipe)
+                mat.mainTextureScale = new Vector2(2f, 2f);
+        }
 
-        mat.mainTexture = tex;
-        if (esPipe)
-            mat.mainTextureScale = new Vector2(2f, 2f);
+        if (esPipe && mat.HasProperty("_Color") && mat.color.maxColorComponent < 0.75f)
+            mat.color = nombre.IndexOf("pipe2", StringComparison.OrdinalIgnoreCase) >= 0
+                ? new Color(0.88f, 0.89f, 0.92f)
+                : new Color(0.93f, 0.92f, 0.88f);
+
+        if (esPipe && mat.HasProperty("_Metallic"))
+        {
+            float metallic = mat.GetFloat("_Metallic");
+            if (metallic > 0.4f || metallic < 0.12f)
+                mat.SetFloat("_Metallic", 0.28f);
+        }
+
+        if (esPipe && mat.HasProperty("_Glossiness"))
+        {
+            float gloss = mat.GetFloat("_Glossiness");
+            if (gloss < 0.25f || gloss > 0.7f)
+                mat.SetFloat("_Glossiness", 0.42f);
+        }
+
         EditorUtility.SetDirty(mat);
     }
 

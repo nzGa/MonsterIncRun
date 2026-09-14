@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 [DefaultExecutionOrder(-100)]
 public class SpawnObjetos : MonoBehaviour
@@ -284,26 +285,23 @@ public class SpawnObjetos : MonoBehaviour
 
     static void PintarProp(GameObject go, string tag, Color fallback)
     {
-        if (tag != "Puerta" && tag != "Ducha")
-            return;
-        Material mat = null;
-        if (tag == "Puerta")
-            mat = Resources.Load<Material>("Models/Materials/Puerta")
-                ?? Resources.Load<Material>("Models/Materials/madera");
-        else if (tag == "Ducha")
+        if (tag == "Ducha")
         {
-            var src = Resources.Load<Material>("Models/Materials/metal");
-            mat = src != null ? new Material(src) : null;
-            if (mat != null && mat.HasProperty("_Color"))
-                mat.color = fallback;
+            PintarDucha(go);
+            return;
         }
 
+        if (tag != "Puerta")
+            return;
+
+        var mat = Resources.Load<Material>("Models/Materials/Puerta")
+            ?? Resources.Load<Material>("Models/Materials/madera");
         if (mat != null)
             AmbienteVisual.RepararShader(mat);
 
         foreach (var r in go.GetComponentsInChildren<Renderer>(true))
         {
-            if (r == null)
+            if (r == null || r is ParticleSystemRenderer)
                 continue;
             AmbienteVisual.RepararShader(r.sharedMaterial);
             if (mat != null)
@@ -311,6 +309,34 @@ public class SpawnObjetos : MonoBehaviour
             else if (r.material != null && r.material.HasProperty("_Color"))
                 r.material.color = fallback;
         }
+    }
+
+    static void PintarDucha(GameObject go)
+    {
+        var madera = Resources.Load<Material>("Models/Materials/madera");
+        var metal = Resources.Load<Material>("Models/Materials/metal");
+        AmbienteVisual.RepararShader(madera);
+        AmbienteVisual.RepararShader(metal);
+
+        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+        {
+            if (r == null || r is ParticleSystemRenderer)
+                continue;
+            AmbienteVisual.RepararShader(r.sharedMaterial);
+            var elegido = EsMaderaDucha(r.gameObject.name) ? madera : metal;
+            if (elegido != null)
+                r.sharedMaterial = elegido;
+        }
+    }
+
+    static bool EsMaderaDucha(string nombre)
+    {
+        if (string.IsNullOrEmpty(nombre))
+            return false;
+        return nombre.IndexOf("Box", StringComparison.OrdinalIgnoreCase) >= 0
+            || nombre.IndexOf("Wall", StringComparison.OrdinalIgnoreCase) >= 0
+            || nombre.IndexOf("Base", StringComparison.OrdinalIgnoreCase) >= 0
+            || nombre.IndexOf("madera", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     static void AjustarTamano(GameObject go, float objetivo, bool forzar, PrimitiveType fallback, Color color)
@@ -481,35 +507,36 @@ public class SpawnObjetos : MonoBehaviour
         var ps = lluvia.AddComponent<ParticleSystem>();
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         var main = ps.main;
-        main.playOnAwake = false;
+        main.playOnAwake = true;
         main.loop = true;
-        main.duration = 1f;
+        main.duration = 2.5f;
         main.prewarm = true;
         main.simulationSpeed = 1f;
-        main.simulationSpace = ParticleSystemSimulationSpace.Local;
-        main.scalingMode = ParticleSystemScalingMode.Local;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.scalingMode = ParticleSystemScalingMode.Hierarchy;
         main.startDelay = 0f;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(0.55f, 0.8f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(2.8f, 4.6f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.11f);
-        main.startColor = new Color(0.72f, 0.9f, 1f, 0.75f);
-        main.gravityModifier = 0.55f;
-        main.maxParticles = 280;
-        main.cullingMode = ParticleSystemCullingMode.PauseAndCatchup;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.85f, 1.35f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(1.6f, 3.2f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.16f);
+        main.startColor = new Color(0.88f, 0.97f, 1f, 1f);
+        main.gravityModifier = 0.85f;
+        main.maxParticles = 420;
+        main.cullingMode = ParticleSystemCullingMode.Automatic;
+        main.stopAction = ParticleSystemStopAction.None;
 
         var emission = ps.emission;
         emission.enabled = true;
-        emission.rateOverTime = 56f;
+        emission.rateOverTime = 110f;
 
         var shape = ps.shape;
         shape.enabled = true;
         shape.shapeType = ParticleSystemShapeType.Cone;
-        shape.angle = 13f;
-        shape.radius = 0.16f;
-        shape.length = 0.2f;
+        shape.angle = 16f;
+        shape.radius = 0.22f;
+        shape.length = 0.15f;
         shape.radiusThickness = 1f;
         shape.arc = 360f;
-        shape.randomDirectionAmount = 0.08f;
+        shape.randomDirectionAmount = 0.05f;
 
         var colorLife = ps.colorOverLifetime;
         colorLife.enabled = true;
@@ -517,31 +544,38 @@ public class SpawnObjetos : MonoBehaviour
         grad.SetKeys(
             new[]
             {
-                new GradientColorKey(new Color(0.7f, 0.88f, 1f), 0f),
-                new GradientColorKey(new Color(0.85f, 0.95f, 1f), 1f)
+                new GradientColorKey(new Color(0.85f, 0.96f, 1f), 0f),
+                new GradientColorKey(Color.white, 1f)
             },
             new[]
             {
-                new GradientAlphaKey(0.2f, 0f),
-                new GradientAlphaKey(0.8f, 0.15f),
-                new GradientAlphaKey(0.35f, 0.7f),
-                new GradientAlphaKey(0f, 1f)
+                new GradientAlphaKey(0.85f, 0f),
+                new GradientAlphaKey(1f, 0.12f),
+                new GradientAlphaKey(0.7f, 0.7f),
+                new GradientAlphaKey(0.15f, 1f)
             });
         colorLife.color = grad;
 
         var sizeLife = ps.sizeOverLifetime;
         sizeLife.enabled = true;
-        sizeLife.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 1f, 1f, 0.35f));
+        sizeLife.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 1f, 1f, 0.55f));
 
         var psr = lluvia.GetComponent<ParticleSystemRenderer>();
-        psr.renderMode = ParticleSystemRenderMode.Billboard;
+        psr.enabled = true;
+        psr.renderMode = ParticleSystemRenderMode.Stretch;
+        psr.velocityScale = 0.12f;
+        psr.lengthScale = 1.55f;
+        psr.cameraVelocityScale = 0f;
         psr.sharedMaterial = MaterialLluvia();
         psr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         psr.receiveShadows = false;
-        psr.maxParticleSize = 0.12f;
+        psr.minParticleSize = 0.004f;
+        psr.maxParticleSize = 0.35f;
+        psr.sortingFudge = -40f;
+        psr.sortingOrder = 8;
+        psr.allowOcclusionWhenDynamic = false;
 
         lluvia.SetActive(true);
-        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ps.Play(true);
     }
 
@@ -562,9 +596,9 @@ public class SpawnObjetos : MonoBehaviour
         _matLluvia.name = "LluviaDucha";
         _matLluvia.mainTexture = TexturaGota();
         if (_matLluvia.HasProperty("_Color"))
-            _matLluvia.color = new Color(0.7f, 0.9f, 1f, 1f);
+            _matLluvia.color = new Color(0.9f, 0.97f, 1f, 1f);
         if (_matLluvia.HasProperty("_TintColor"))
-            _matLluvia.SetColor("_TintColor", new Color(0.55f, 0.8f, 1f, 0.45f));
+            _matLluvia.SetColor("_TintColor", new Color(0.8f, 0.93f, 1f, 0.7f));
         if (_matLluvia.HasProperty("_ColorMode"))
         {
             _matLluvia.SetFloat("_ColorMode", 1f);
