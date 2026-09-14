@@ -39,14 +39,12 @@ public static class AmbienteVisual
 
     public static void AsegurarCesped()
     {
+        if (Terrain.activeTerrain != null)
+            return;
+
         var cesped = GameObject.Find("Cesped");
         if (cesped == null)
-        {
-            cesped = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            cesped.name = "Cesped";
-            cesped.transform.position = new Vector3(0f, -0.04f, 0f);
-            cesped.transform.localScale = new Vector3(60f, 1f, 60f);
-        }
+            return;
 
         AplicarTexturaTiled(
             cesped,

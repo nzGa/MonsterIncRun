@@ -1,0 +1,8 @@
+newmtl Bark
+Kd 1 1 1
+map_Kd BigTree.png
+
+newmtl Leaves
+Kd 1 1 1
+d 1
+map_Kd BigTree.png

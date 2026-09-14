@@ -1,6 +1,5 @@
 ﻿using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 public class MenuPrincipal : MonoBehaviour
 {
@@ -19,10 +18,10 @@ public class MenuPrincipal : MonoBehaviour
         var root = canvas.transform;
 
         var fondo = UiFactory.AddImage(root, "Fondo", Vector2.zero, Vector2.one, Color.white);
-        var texFondo = Resources.Load<Texture2D>("UI/mike_inicio");
-        if (texFondo != null)
+        var spriteFondo = UiFactory.LoadSprite("UI/mike_inicio");
+        if (spriteFondo != null)
         {
-            fondo.sprite = UiFactory.SpriteFromTexture(texFondo);
+            fondo.sprite = spriteFondo;
             fondo.preserveAspect = false;
         }
         else
@@ -31,41 +30,34 @@ public class MenuPrincipal : MonoBehaviour
         }
 
         var titulo = UiFactory.AddImage(root, "Titulo", new Vector2(0.03f, 0.72f), new Vector2(0.55f, 0.97f), Color.white);
-        var texTitulo = Resources.Load<Texture2D>("UI/run_nombre_juego");
-        if (texTitulo != null)
+        var spriteTitulo = UiFactory.LoadSprite("UI/run_nombre_juego");
+        if (spriteTitulo != null)
         {
-            titulo.sprite = UiFactory.SpriteFromTexture(texTitulo);
+            titulo.sprite = spriteTitulo;
             titulo.preserveAspect = true;
             titulo.color = Color.white;
         }
         else
         {
             titulo.color = Color.clear;
-            var fallback = UiFactory.AddText(root, "TituloTexto", "Run Mike Run", 64, TextAnchor.MiddleLeft, Color.yellow);
+            var fallback = UiFactory.AddText(root, "TituloTexto", "Run Mike Run", 64, TextAnchor.MiddleLeft, UiFactory.Oro, true, FontStyle.Bold);
             fallback.rectTransform.anchorMin = new Vector2(0.05f, 0.8f);
             fallback.rectTransform.anchorMax = new Vector2(0.6f, 0.95f);
             UiFactory.Stretch(fallback.rectTransform);
         }
 
-        var panel = UiFactory.AddImage(root, "Panel", new Vector2(0.06f, 0.28f), new Vector2(0.38f, 0.68f), new Color(0f, 0f, 0f, 0.55f));
+        var panel = UiFactory.AddPanel(root, "Panel", new Vector2(0.05f, 0.26f), new Vector2(0.40f, 0.70f), new Color(0.04f, 0.06f, 0.05f, 0.78f));
         panel.raycastTarget = false;
 
-        var tituloPanel = UiFactory.AddText(panel.transform, "PanelTitulo", "Run Mike Run", 28, TextAnchor.UpperCenter, Color.white);
-        tituloPanel.rectTransform.anchorMin = new Vector2(0.05f, 0.78f);
-        tituloPanel.rectTransform.anchorMax = new Vector2(0.95f, 0.95f);
+        var tituloPanel = UiFactory.AddText(panel.transform, "PanelTitulo", "Run Mike Run", 30, TextAnchor.UpperCenter, Color.white, true, FontStyle.Bold);
+        tituloPanel.rectTransform.anchorMin = new Vector2(0.06f, 0.78f);
+        tituloPanel.rectTransform.anchorMax = new Vector2(0.94f, 0.96f);
         UiFactory.Stretch(tituloPanel.rectTransform);
 
-        var iniciar = UiFactory.AddButton(panel.transform, "Iniciar", "Iniciar", new Vector2(0, 20), new Vector2(360, 70));
+        var iniciar = UiFactory.AddButton(panel.transform, "Iniciar", "Iniciar", new Vector2(0f, 18f), new Vector2(360f, 70f));
         iniciar.onClick.AddListener(() => SceneManager.LoadScene(escenaJuego));
 
-        var salir = UiFactory.AddButton(panel.transform, "Salir", "Salir", new Vector2(0, -70), new Vector2(360, 70));
+        var salir = UiFactory.AddButton(panel.transform, "Salir", "Salir", new Vector2(0f, -72f), new Vector2(360f, 70f));
         salir.onClick.AddListener(Application.Quit);
-
-        var reglas = UiFactory.AddText(root, "Reglas",
-            "Consegui un tubo de gritos y llega a la puerta.\nZapatos: mas velocidad. Medias: contaminan. Casco: inmunidad. Ducha: descontamina.",
-            22, TextAnchor.LowerLeft, Color.white);
-        reglas.rectTransform.anchorMin = new Vector2(0.04f, 0.04f);
-        reglas.rectTransform.anchorMax = new Vector2(0.7f, 0.22f);
-        UiFactory.Stretch(reglas.rectTransform);
     }
 }
