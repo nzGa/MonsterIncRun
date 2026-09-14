@@ -6,6 +6,8 @@ using UnityEngine.Rendering;
 public static class ReconectarMateriales
 {
     static readonly Color VerdePiel = new Color(0.50f, 0.78f, 0.15f);
+    public static readonly Color ColorLengua = new Color(0.86f, 0.12f, 0.20f);
+    public static readonly Color ColorPaladar = new Color(0.65f, 0.20f, 0.22f);
     static readonly Color ColorPipe1 = Color.white;
     static readonly Color ColorPipe2 = new Color(0.96f, 0.97f, 1f);
     static readonly Color ColorVidrio = new Color(0.58f, 0.72f, 0.78f, 1f);
@@ -14,8 +16,8 @@ public static class ReconectarMateriales
     const float BrilloPipe = 0.42f;
     const float MetalicoChim = 0.72f;
     const float BrilloChim = 0.48f;
-    const float MetalicoVidrio = 0.62f;
-    const float BrilloVidrio = 0.78f;
+    const float MetalicoVidrio = 0.88f;
+    const float BrilloVidrio = 0.95f;
     const int ColaGeometria = 2000;
 
     // FBX ByPolygon / connection order on the skinned "Mike" mesh.
@@ -121,8 +123,8 @@ public static class ReconectarMateriales
         var piel = AsegurarPiel(
             BuscarMike(mats, "Piel") ?? Resources.Load<Material>("Models/Mike/Materials/Piel"),
             paladar, lengua, ojo);
-        AsegurarMaterialBoca(lengua, new Color(0.86f, 0.12f, 0.20f), piel, ojo);
-        AsegurarMaterialBoca(paladar, new Color(0.65f, 0.20f, 0.22f), piel, ojo);
+        AsegurarMaterialBoca(lengua, ColorLengua, piel, ojo);
+        AsegurarMaterialBoca(paladar, ColorPaladar, piel, ojo);
         AsegurarMaterialBoca(dientes, Color.white, piel, ojo);
         AsegurarMaterialBoca(unias, Color.white, piel, ojo);
 
@@ -168,11 +170,42 @@ public static class ReconectarMateriales
                 changed = true;
             if (ForzarOjoEnDisco(siguiente, renderer, ojo))
                 changed = true;
-            if (ForzarLenguaEnSlot(siguiente, lengua))
+            if (ForzarBocaEnSlots(siguiente, lengua, paladar))
                 changed = true;
 
             if (changed)
                 renderer.sharedMaterials = siguiente;
+        }
+
+        AsegurarBoca(root);
+    }
+
+    public static void AsegurarBoca(GameObject root)
+    {
+        if (root == null)
+            return;
+
+        var mats = MaterialesMike();
+        var paladar = BuscarMike(mats, "Paladar");
+        var lengua = BuscarMike(mats, "Lengua");
+        AsegurarMaterialBoca(lengua, ColorLengua, null, null);
+        AsegurarMaterialBoca(paladar, ColorPaladar, null, null);
+
+        foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer.GetComponent<TextMesh>() != null)
+                continue;
+            if (renderer.GetComponentInParent<Canvas>() != null)
+                continue;
+
+            var shared = renderer.sharedMaterials;
+            if (shared == null || shared.Length == 0)
+                continue;
+
+            var siguiente = (Material[])shared.Clone();
+            if (!ForzarBocaEnSlots(siguiente, lengua, paladar))
+                continue;
+            renderer.sharedMaterials = siguiente;
         }
     }
 
@@ -248,10 +281,8 @@ public static class ReconectarMateriales
 
         int disco = IndiceDiscoFacial(renderer);
         if (disco < 0 || disco >= slots.Length)
-            disco = IndicePaladarGrande(slots, renderer);
-        if (disco < 0 || disco >= slots.Length)
             return false;
-        if (EsSlotLengua(disco, slots.Length, slots[disco], renderer != null ? renderer.gameObject.name : null))
+        if (EsSlotBoca(disco, slots.Length, slots[disco], renderer != null ? renderer.gameObject.name : null))
             return false;
         int mayor = IndiceSubmeshMayor(renderer);
         if (disco == mayor)
@@ -263,64 +294,49 @@ public static class ReconectarMateriales
         return true;
     }
 
-    static bool ForzarLenguaEnSlot(Material[] slots, Material lengua)
+    static bool ForzarBocaEnSlots(Material[] slots, Material lengua, Material paladar)
     {
-        if (slots == null || lengua == null)
+        bool changed = false;
+        if (slots == null)
             return false;
 
-        bool changed = false;
-        if (slots.Length >= 6 && slots[2] != lengua)
+        if (lengua != null && slots.Length >= 6 && slots[2] != lengua)
         {
             slots[2] = lengua;
+            changed = true;
+        }
+        if (paladar != null && slots.Length >= 6 && slots[3] != paladar)
+        {
+            slots[3] = paladar;
             changed = true;
         }
 
         for (int i = 0; i < slots.Length; i++)
         {
-            if (!EsLengua(NombreMaterial(slots[i])))
-                continue;
-            if (slots[i] == lengua)
-                continue;
-            slots[i] = lengua;
-            changed = true;
+            var nombre = NombreMaterial(slots[i]);
+            if (lengua != null && EsLengua(nombre) && slots[i] != lengua)
+            {
+                slots[i] = lengua;
+                changed = true;
+            }
+            else if (paladar != null && EsPaladar(nombre) && slots[i] != paladar)
+            {
+                slots[i] = paladar;
+                changed = true;
+            }
         }
 
         return changed;
     }
 
-    static bool EsSlotLengua(int slot, int slots, Material actual, string rendererName)
+    public static bool EsSlotBoca(int slot, int slots, Material actual, string rendererName)
     {
-        if (slots >= 6 && slot == 2)
+        if (slots >= 6 && (slot == 2 || slot == 3))
             return true;
-        return EsLengua(NombreMaterial(actual)) || EsLengua(rendererName);
-    }
-
-    static int IndicePaladarGrande(Material[] slots, Renderer renderer)
-    {
-        var mesh = MeshDe(renderer);
-        if (mesh == null || slots == null)
-            return -1;
-
-        int mayor = IndiceSubmeshMayor(renderer);
-        int mejor = -1;
-        float mejorVol = -1f;
-        int limite = Mathf.Min(slots.Length, mesh.subMeshCount);
-        for (int i = 0; i < limite; i++)
-        {
-            if (i == mayor)
-                continue;
-            var nombre = NombreMaterial(slots[i]);
-            if (!EsPaladar(nombre) && !EsLengua(nombre) && !EsNombreOjo(nombre))
-                continue;
-            float vol = VolumenSubmesh(mesh, i);
-            if (vol > mejorVol)
-            {
-                mejorVol = vol;
-                mejor = i;
-            }
-        }
-
-        return mejor;
+        return EsLengua(NombreMaterial(actual))
+            || EsPaladar(NombreMaterial(actual))
+            || EsLengua(rendererName)
+            || EsPaladar(rendererName);
     }
 
     static bool ForzarPielEnCuerpo(Material[] slots, Renderer renderer, Material piel, int discoOjo)
@@ -356,7 +372,7 @@ public static class ReconectarMateriales
             ? renderer.sharedMaterials.Length
             : 1;
 
-        if (discoOjo >= 0 && slot == discoOjo && !EsSlotLengua(slot, slots, actual, rendererName))
+        if (discoOjo >= 0 && slot == discoOjo && !EsSlotBoca(slot, slots, actual, rendererName))
             return ojo ?? piel;
 
         if (EsNombreOjo(rendererName) && slots <= 1)
@@ -517,9 +533,9 @@ public static class ReconectarMateriales
         if (piel.HasProperty("_Metallic"))
             piel.SetFloat("_Metallic", 0f);
         if (piel.HasProperty("_Glossiness"))
-            piel.SetFloat("_Glossiness", 0.36f);
+            piel.SetFloat("_Glossiness", 0.12f);
         if (piel.HasProperty("_Smoothness"))
-            piel.SetFloat("_Smoothness", 0.36f);
+            piel.SetFloat("_Smoothness", 0.12f);
     }
 
     static bool ColorCasiBlanco(Color c)
@@ -561,6 +577,12 @@ public static class ReconectarMateriales
         if (EsPiel(mat.name) || EsNombreOjo(mat.name))
             return;
 
+        var shaderBoca = Shader.Find("Legacy Shaders/Diffuse")
+            ?? Shader.Find("Diffuse")
+            ?? Shader.Find("Standard");
+        if (shaderBoca != null && (EsLengua(mat.name) || EsPaladar(mat.name)))
+            mat.shader = shaderBoca;
+
         AmbienteVisual.RepararShader(mat);
         if ((EsLengua(mat.name) || EsPaladar(mat.name)) && mat.HasProperty("_MainTex"))
             mat.mainTexture = null;
@@ -571,6 +593,12 @@ public static class ReconectarMateriales
             else if (mat.color.maxColorComponent < 0.35f || ColorCasiBlanco(mat.color))
                 mat.color = visible;
         }
+        if (mat.HasProperty("_Metallic"))
+            mat.SetFloat("_Metallic", 0f);
+        if (mat.HasProperty("_Glossiness"))
+            mat.SetFloat("_Glossiness", 0.08f);
+        if (mat.HasProperty("_Smoothness"))
+            mat.SetFloat("_Smoothness", 0.08f);
         if (mat.HasProperty("_Cull"))
             mat.SetInt("_Cull", 0);
     }
@@ -1287,7 +1315,10 @@ public static class ReconectarMateriales
     {
         if (material == null || !material.HasProperty("_MainTex"))
             return false;
-        if (EsPiel(NombreMaterial(material)) || EsNombreOjo(NombreMaterial(material)))
+        if (EsPiel(NombreMaterial(material))
+            || EsNombreOjo(NombreMaterial(material))
+            || EsLengua(NombreMaterial(material))
+            || EsPaladar(NombreMaterial(material)))
             return false;
         if (EsVidrio(NombreMaterial(material)))
             return false;

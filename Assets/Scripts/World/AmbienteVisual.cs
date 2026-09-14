@@ -20,12 +20,13 @@ public static class AmbienteVisual
         RepararShader(sky, Shader.Find("Skybox/6 Sided") ?? Shader.Find("Skybox/Cubemap"));
         RenderSettings.skybox = sky;
         RenderSettings.ambientMode = AmbientMode.Trilight;
-        RenderSettings.ambientSkyColor = new Color(0.76f, 0.80f, 0.88f);
-        RenderSettings.ambientEquatorColor = new Color(0.60f, 0.62f, 0.64f);
-        RenderSettings.ambientGroundColor = new Color(0.46f, 0.44f, 0.40f);
-        RenderSettings.ambientIntensity = 1.2f;
+        // Warm fill so grass/Mike stay readable in shadow without a cyan sky wash.
+        RenderSettings.ambientSkyColor = new Color(0.70f, 0.74f, 0.78f);
+        RenderSettings.ambientEquatorColor = new Color(0.56f, 0.60f, 0.52f);
+        RenderSettings.ambientGroundColor = new Color(0.40f, 0.42f, 0.32f);
+        RenderSettings.ambientIntensity = 1.25f;
         RenderSettings.defaultReflectionMode = DefaultReflectionMode.Skybox;
-        RenderSettings.reflectionIntensity = 0.45f;
+        RenderSettings.reflectionIntensity = 1f;
         QualitySettings.realtimeReflectionProbes = true;
         DynamicGI.UpdateEnvironment();
 
@@ -68,7 +69,7 @@ public static class AmbienteVisual
             Resources.Load<Material>("Models/Materials/Cesped"),
             CargarTextura(TexCesped, "Assets/Art/Textures/Grass (Hill).psd"),
             40f,
-            new Color(0.32f, 0.48f, 0.20f));
+            new Color(0.42f, 0.52f, 0.30f));
     }
 
     public static void AsignarPupila(GameObject mike)
@@ -129,6 +130,8 @@ public static class AmbienteVisual
             if (changed)
                 renderer.sharedMaterials = siguiente;
         }
+
+        ReconectarMateriales.AsegurarBoca(mike);
     }
 
     static bool EsSlotOjo(Material material, Renderer renderer, int slots, int slot, int disco)
@@ -137,7 +140,14 @@ public static class AmbienteVisual
         if (nombreGuard != null && nombreGuard.EndsWith(" (Instance)"))
             nombreGuard = nombreGuard.Substring(0, nombreGuard.Length - " (Instance)".Length);
         if (!string.IsNullOrEmpty(nombreGuard)
-            && nombreGuard.IndexOf("Piel", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            && (nombreGuard.IndexOf("Piel", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || nombreGuard.IndexOf("Lengua", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || nombreGuard.IndexOf("Paladar", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || nombreGuard.IndexOf("Diente", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || nombreGuard.IndexOf("Unia", System.StringComparison.OrdinalIgnoreCase) >= 0))
+            return false;
+
+        if (ReconectarMateriales.EsSlotBoca(slot, slots, material, renderer != null ? renderer.gameObject.name : null))
             return false;
 
         if (disco >= 0 && slot == disco)
@@ -294,8 +304,8 @@ public static class AmbienteVisual
         probe.mode = ReflectionProbeMode.Realtime;
         probe.refreshMode = ReflectionProbeRefreshMode.EveryFrame;
         probe.timeSlicingMode = ReflectionProbeTimeSlicingMode.NoTimeSlicing;
-        probe.boxProjection = false;
-        probe.intensity = 0.5f;
+        probe.boxProjection = true;
+        probe.intensity = 1.2f;
         probe.importance = 10;
         probe.resolution = 128;
         probe.hdr = true;
