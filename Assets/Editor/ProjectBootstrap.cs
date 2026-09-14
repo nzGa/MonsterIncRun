@@ -32,8 +32,8 @@ public static class ProjectBootstrap
         ("glass", new Color(0.55f, 0.72f, 0.82f, 0.45f)),
         ("window", new Color(0.25f, 0.32f, 0.38f)),
         ("fence", new Color(0.40f, 0.40f, 0.38f)),
-        ("pipe1", new Color(0.93f, 0.92f, 0.88f)),
-        ("pipe2", new Color(0.88f, 0.89f, 0.92f)),
+        ("pipe1", new Color(0.78f, 0.78f, 0.76f)),
+        ("pipe2", new Color(0.76f, 0.77f, 0.80f)),
         ("15_verti", new Color(0.62f, 0.58f, 0.48f)),
         ("7cdred", new Color(0.72f, 0.16f, 0.14f)),
         ("7cdcolor", new Color(0.20f, 0.55f, 0.28f)),
@@ -53,7 +53,7 @@ public static class ProjectBootstrap
 
     static readonly (string name, Color color)[] MikeMaterials =
     {
-        ("Piel", new Color(0.333f, 0.596f, 0.125f)),
+        ("Piel", new Color(0.50f, 0.78f, 0.15f)),
         ("Lengua", new Color(0.75f, 0.22f, 0.28f)),
         ("Ojo", new Color(0.80f, 0.80f, 0.80f)),
         ("Paladar", new Color(0.65f, 0.20f, 0.22f)),
@@ -258,43 +258,55 @@ public static class ProjectBootstrap
 
             AmbienteVisual.RepararShader(mat);
             bool dirty = false;
+            bool esPipe = name.StartsWith("pipe", StringComparison.OrdinalIgnoreCase);
+            var std = Shader.Find("Standard");
+            if (esPipe && std != null && mat.shader != std)
+            {
+                mat.shader = std;
+                dirty = true;
+            }
+
             if (mat.HasProperty("_MainTex") && mat.mainTexture != tex)
             {
                 mat.mainTexture = tex;
                 dirty = true;
             }
 
-            bool esPipe = name.StartsWith("pipe", StringComparison.OrdinalIgnoreCase);
-            if (esPipe && mat.HasProperty("_MainTex") && mat.mainTextureScale == Vector2.one)
+            if (esPipe && mat.HasProperty("_MainTex") && mat.mainTextureScale != new Vector2(2f, 2f))
             {
                 mat.mainTextureScale = new Vector2(2f, 2f);
                 dirty = true;
             }
 
-            if (esPipe && mat.HasProperty("_Color") && mat.color.maxColorComponent < 0.75f)
+            var colorPipe = name == "pipe2"
+                ? new Color(0.76f, 0.77f, 0.80f)
+                : new Color(0.78f, 0.78f, 0.76f);
+            if (esPipe && mat.HasProperty("_Color") && mat.color != colorPipe)
             {
-                mat.color = name == "pipe2"
-                    ? new Color(0.88f, 0.89f, 0.92f)
-                    : new Color(0.93f, 0.92f, 0.88f);
+                mat.color = colorPipe;
                 dirty = true;
             }
 
-            if (esPipe && mat.HasProperty("_Metallic"))
+            if (esPipe && mat.HasProperty("_Metallic") && !Mathf.Approximately(mat.GetFloat("_Metallic"), 0.28f))
             {
-                float metallic = mat.GetFloat("_Metallic");
-                if (metallic > 0.4f || metallic < 0.15f)
-                {
-                    mat.SetFloat("_Metallic", 0.28f);
-                    dirty = true;
-                }
+                mat.SetFloat("_Metallic", 0.28f);
+                dirty = true;
             }
 
-            if (esPipe && mat.HasProperty("_Glossiness"))
+            if (esPipe && mat.HasProperty("_Glossiness") && !Mathf.Approximately(mat.GetFloat("_Glossiness"), 0.4f))
             {
-                float gloss = mat.GetFloat("_Glossiness");
-                if (gloss < 0.25f || gloss > 0.7f)
+                mat.SetFloat("_Glossiness", 0.4f);
+                dirty = true;
+            }
+
+            if (esPipe && mat.HasProperty("_EmissionColor"))
+            {
+                mat.EnableKeyword("_EMISSION");
+                mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                var emit = new Color(0.14f, 0.14f, 0.145f);
+                if (mat.GetColor("_EmissionColor") != emit)
                 {
-                    mat.SetFloat("_Glossiness", 0.42f);
+                    mat.SetColor("_EmissionColor", emit);
                     dirty = true;
                 }
             }

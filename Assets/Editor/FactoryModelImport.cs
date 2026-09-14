@@ -152,30 +152,33 @@ public class FactoryModelImport : AssetPostprocessor
             return;
 
         var tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/metal.jpg");
-        if (tex != null && mat.HasProperty("_MainTex") && mat.mainTexture != tex)
+        var std = Shader.Find("Standard");
+        if (esPipe && std != null)
+            mat.shader = std;
+
+        if (tex != null && mat.HasProperty("_MainTex"))
         {
             mat.mainTexture = tex;
             if (esPipe)
                 mat.mainTextureScale = new Vector2(2f, 2f);
         }
 
-        if (esPipe && mat.HasProperty("_Color") && mat.color.maxColorComponent < 0.75f)
+        if (esPipe && mat.HasProperty("_Color"))
             mat.color = nombre.IndexOf("pipe2", StringComparison.OrdinalIgnoreCase) >= 0
-                ? new Color(0.88f, 0.89f, 0.92f)
-                : new Color(0.93f, 0.92f, 0.88f);
+                ? new Color(0.76f, 0.77f, 0.80f)
+                : new Color(0.78f, 0.78f, 0.76f);
 
         if (esPipe && mat.HasProperty("_Metallic"))
-        {
-            float metallic = mat.GetFloat("_Metallic");
-            if (metallic > 0.4f || metallic < 0.12f)
-                mat.SetFloat("_Metallic", 0.28f);
-        }
+            mat.SetFloat("_Metallic", 0.28f);
 
         if (esPipe && mat.HasProperty("_Glossiness"))
+            mat.SetFloat("_Glossiness", 0.4f);
+
+        if (esPipe && mat.HasProperty("_EmissionColor"))
         {
-            float gloss = mat.GetFloat("_Glossiness");
-            if (gloss < 0.25f || gloss > 0.7f)
-                mat.SetFloat("_Glossiness", 0.42f);
+            mat.EnableKeyword("_EMISSION");
+            mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            mat.SetColor("_EmissionColor", new Color(0.14f, 0.14f, 0.145f));
         }
 
         EditorUtility.SetDirty(mat);
