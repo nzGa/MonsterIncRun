@@ -4,7 +4,10 @@ using UnityEngine;
 
 public static class ReconectarMateriales
 {
-    static readonly Color VerdePiel = new Color(0.333f, 0.596f, 0.125f);
+    static readonly Color VerdePiel = new Color(0.50f, 0.78f, 0.15f);
+    static readonly Color ColorPipe1 = new Color(0.78f, 0.78f, 0.76f);
+    static readonly Color ColorPipe2 = new Color(0.76f, 0.77f, 0.80f);
+    static readonly Color EmisionPipe = new Color(0.14f, 0.14f, 0.145f);
 
     // FBX ByPolygon / connection order on the skinned "Mike" mesh.
     static readonly string[] SlotsMikePorIndice =
@@ -38,13 +41,20 @@ public static class ReconectarMateriales
             {
                 var actual = shared[i];
                 var reemplazo = BuscarReemplazo(catalogo, actual, renderer);
+                if (EsTuberia(actual, renderer) || PareceRielOscuro(actual, renderer))
+                {
+                    var forzado = MaterialTuberia(EsPipe2(actual, renderer));
+                    if (forzado != null)
+                        reemplazo = forzado;
+                }
+
                 if (reemplazo != null && reemplazo != actual)
                 {
                     shared[i] = reemplazo;
                     changed = true;
                 }
 
-                if (AsegurarTexturaTuberia(shared[i]))
+                if (AsegurarTexturaTuberia(shared[i], renderer))
                     changed = true;
                 else if (Reparar(shared[i] != null ? shared[i] : actual))
                     changed = true;
@@ -379,61 +389,58 @@ public static class ReconectarMateriales
 
         if (piel != null)
         {
-            AmbienteVisual.RepararShader(piel);
-            AsignarTexturaPiel(piel);
+            AplicarPielLisa(piel);
             return piel;
         }
 
         if (_pielFallback == null)
         {
-            var shader = Shader.Find("Legacy Shaders/Diffuse")
-                ?? Shader.Find("Diffuse")
-                ?? Shader.Find("Standard");
+            var shader = ShaderPiel();
             if (shader != null)
             {
                 _pielFallback = new Material(shader) { name = "Piel" };
-                AsignarTexturaPiel(_pielFallback);
+                AplicarPielLisa(_pielFallback);
             }
         }
         return _pielFallback;
     }
 
-    static Texture _texPielArchivo;
-
-    static void AsignarTexturaPiel(Material piel)
+    static Shader ShaderPiel()
     {
-        if (piel == null || !piel.HasProperty("_MainTex"))
-            return;
-
-        if (piel.mainTexture == null)
-        {
-            var tex = TexturaPielArchivo();
-            if (tex != null)
-                piel.mainTexture = tex;
-        }
-
-        if (piel.HasProperty("_Color"))
-        {
-            if (piel.mainTexture != null)
-                piel.color = Color.white;
-            else
-                piel.color = VerdePiel;
-        }
+        return Shader.Find("MonsterInc/MikePiel")
+            ?? Shader.Find("Legacy Shaders/Diffuse")
+            ?? Shader.Find("Diffuse")
+            ?? Shader.Find("Standard");
     }
 
-    static Texture TexturaPielArchivo()
+    static void AplicarPielLisa(Material piel)
     {
-        if (_texPielArchivo != null)
-            return _texPielArchivo;
+        if (piel == null)
+            return;
 
-        _texPielArchivo = Resources.Load<Texture2D>("Textures/Piel")
-            ?? Resources.Load<Texture2D>("Models/Mike/Piel");
-#if UNITY_EDITOR
-        if (_texPielArchivo == null)
-            _texPielArchivo = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(
-                "Assets/Resources/Textures/Piel.png");
-#endif
-        return _texPielArchivo;
+        // Cylindrical UVs on the sphere stretch any 2D grain into wood/watermelon veins.
+        if (piel.HasProperty("_MainTex"))
+            piel.mainTexture = null;
+
+        var shader = ShaderPiel();
+        if (shader != null)
+            piel.shader = shader;
+
+        if (piel.HasProperty("_MainTex"))
+            piel.mainTexture = null;
+
+        if (piel.HasProperty("_Color"))
+            piel.color = VerdePiel;
+        if (piel.HasProperty("_PoreScale"))
+            piel.SetFloat("_PoreScale", 48f);
+        if (piel.HasProperty("_PoreAmount"))
+            piel.SetFloat("_PoreAmount", 0.04f);
+        if (piel.HasProperty("_Metallic"))
+            piel.SetFloat("_Metallic", 0f);
+        if (piel.HasProperty("_Glossiness"))
+            piel.SetFloat("_Glossiness", 0.36f);
+        if (piel.HasProperty("_Smoothness"))
+            piel.SetFloat("_Smoothness", 0.36f);
     }
 
     static bool ColorCasiBlanco(Color c)
@@ -586,6 +593,9 @@ public static class ReconectarMateriales
         return haystack.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
+    static Material _pipe1Live;
+    static Material _pipe2Live;
+
     static bool EsNombreTuberia(string nombre)
     {
         if (string.IsNullOrEmpty(nombre))
@@ -593,6 +603,92 @@ public static class ReconectarMateriales
         if (Contiene(nombre, "pipe"))
             return true;
         return string.Equals(nombre, "metal", StringComparison.OrdinalIgnoreCase);
+    }
+
+    static bool NombreEnJerarquia(Transform t, string needle)
+    {
+        while (t != null)
+        {
+            if (Contiene(t.name, needle))
+                return true;
+            t = t.parent;
+        }
+        return false;
+    }
+
+    static bool EnFabrica(Renderer renderer)
+    {
+        return renderer != null && NombreEnJerarquia(renderer.transform, "Fabrica");
+    }
+
+    static bool EsTuberia(Material material, Renderer renderer)
+    {
+        if (Contiene(NombreMaterial(material), "pipe"))
+            return true;
+        return renderer != null && NombreEnJerarquia(renderer.transform, "pipe");
+    }
+
+    static bool EsPipe2(Material material, Renderer renderer)
+    {
+        if (Contiene(NombreMaterial(material), "pipe2"))
+            return true;
+        return renderer != null && NombreEnJerarquia(renderer.transform, "pipe2");
+    }
+
+    static bool EsExcluidoDeRiel(string nombre)
+    {
+        return Contiene(nombre, "glass")
+            || Contiene(nombre, "window")
+            || Contiene(nombre, "roof")
+            || Contiene(nombre, "ground")
+            || Contiene(nombre, "wall")
+            || Contiene(nombre, "logo")
+            || Contiene(nombre, "madera")
+            || Contiene(nombre, "Piel")
+            || Contiene(nombre, "Cesped")
+            || Contiene(nombre, "7cd")
+            || Contiene(nombre, "red");
+    }
+
+    static bool PareceRielOscuro(Material material, Renderer renderer)
+    {
+        if (material == null || !EnFabrica(renderer) || !material.HasProperty("_Color"))
+            return false;
+        if (EsExcluidoDeRiel(NombreMaterial(material)))
+            return false;
+        return material.color.maxColorComponent < 0.22f;
+    }
+
+    static Shader ShaderTuberia()
+    {
+        return Shader.Find("Standard")
+            ?? Shader.Find("Legacy Shaders/Diffuse")
+            ?? Shader.Find("Diffuse");
+    }
+
+    static Material MaterialTuberia(bool pipe2)
+    {
+        if (pipe2)
+        {
+            if (_pipe2Live == null)
+                _pipe2Live = CrearTuberia("pipe2", ColorPipe2);
+            return _pipe2Live;
+        }
+
+        if (_pipe1Live == null)
+            _pipe1Live = CrearTuberia("pipe1", ColorPipe1);
+        return _pipe1Live;
+    }
+
+    static Material CrearTuberia(string nombre, Color color)
+    {
+        var shader = ShaderTuberia();
+        if (shader == null)
+            return null;
+
+        var mat = new Material(shader) { name = nombre };
+        PintarTuberia(mat, color);
+        return mat;
     }
 
     static Texture TexturaMetal()
@@ -619,64 +715,51 @@ public static class ReconectarMateriales
         return _texMetal;
     }
 
-    static bool AsegurarTexturaTuberia(Material material)
+    static void PintarTuberia(Material material, Color color)
     {
-        var nombre = NombreMaterial(material);
-        if (material == null || !EsNombreTuberia(nombre))
-            return false;
+        if (material == null)
+            return;
 
-        AmbienteVisual.RepararShader(material);
-        bool changed = false;
+        var shader = ShaderTuberia();
+        if (shader != null && (material.shader == null
+            || material.shader.name.Contains("InternalError")
+            || material.shader.name.IndexOf("Standard", StringComparison.OrdinalIgnoreCase) < 0))
+            material.shader = shader;
+
         var tex = TexturaMetal();
-        if (tex != null && material.HasProperty("_MainTex") && material.mainTexture != tex)
+        if (tex != null && material.HasProperty("_MainTex"))
         {
             material.mainTexture = tex;
-            changed = true;
-        }
-
-        if (Contiene(nombre, "pipe") && material.HasProperty("_MainTex"))
-        {
-            var scale = material.mainTextureScale;
-            if (scale.x < 1.5f || scale.y < 1.5f)
-            {
-                material.mainTextureScale = new Vector2(2f, 2f);
-                changed = true;
-            }
+            material.mainTextureScale = new Vector2(2f, 2f);
         }
 
         if (material.HasProperty("_Color"))
-        {
-            var c = material.color;
-            if (c.maxColorComponent < 0.75f)
-            {
-                material.color = Contiene(nombre, "pipe2")
-                    ? new Color(0.88f, 0.89f, 0.92f)
-                    : new Color(0.93f, 0.92f, 0.88f);
-                changed = true;
-            }
-        }
-
+            material.color = color;
         if (material.HasProperty("_Metallic"))
-        {
-            float metallic = material.GetFloat("_Metallic");
-            if (metallic > 0.4f || metallic < 0.12f)
-            {
-                material.SetFloat("_Metallic", 0.28f);
-                changed = true;
-            }
-        }
-
+            material.SetFloat("_Metallic", 0.28f);
         if (material.HasProperty("_Glossiness"))
+            material.SetFloat("_Glossiness", 0.4f);
+        if (material.HasProperty("_Smoothness"))
+            material.SetFloat("_Smoothness", 0.4f);
+        if (material.HasProperty("_EmissionColor"))
         {
-            float gloss = material.GetFloat("_Glossiness");
-            if (gloss < 0.25f || gloss > 0.7f)
-            {
-                material.SetFloat("_Glossiness", 0.42f);
-                changed = true;
-            }
+            material.EnableKeyword("_EMISSION");
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            material.SetColor("_EmissionColor", EmisionPipe);
         }
+    }
 
-        return changed;
+    static bool AsegurarTexturaTuberia(Material material, Renderer renderer)
+    {
+        if (material == null || (!EsTuberia(material, renderer) && !PareceRielOscuro(material, renderer)))
+            return false;
+
+        var color = EsPipe2(material, renderer) ? ColorPipe2 : ColorPipe1;
+        var anterior = material.color;
+        var texAntes = material.HasProperty("_MainTex") ? material.mainTexture : null;
+        PintarTuberia(material, color);
+        return material.color != anterior
+            || (material.HasProperty("_MainTex") && material.mainTexture != texAntes);
     }
 
     static Material BuscarReemplazo(Dictionary<string, Material> catalogo, Material actual, Renderer renderer)
@@ -695,12 +778,18 @@ public static class ReconectarMateriales
                 return porBase;
         }
 
-        if (EsNombreTuberia(nombre))
+        if (EsNombreTuberia(nombre) || (renderer != null && NombreEnJerarquia(renderer.transform, "pipe")))
         {
-            if (Contiene(nombre, "pipe2") && catalogo.TryGetValue("pipe2", out var pipe2))
-                return pipe2;
-            if (catalogo.TryGetValue("pipe1", out var pipe1))
+            if (Contiene(nombre, "pipe2") || (renderer != null && NombreEnJerarquia(renderer.transform, "pipe2")))
+            {
+                if (catalogo.TryGetValue("pipe2", out var pipe2))
+                    return pipe2;
+            }
+            if (Contiene(nombre, "pipe") && catalogo.TryGetValue("pipe1", out var pipe1))
                 return pipe1;
+            if (renderer != null && NombreEnJerarquia(renderer.transform, "pipe")
+                && catalogo.TryGetValue("pipe1", out var pipePorNodo))
+                return pipePorNodo;
             if (catalogo.TryGetValue("metal", out var metal))
                 return metal;
         }

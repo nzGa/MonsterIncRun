@@ -62,7 +62,8 @@ public class ObtieneObjeto : MonoBehaviour
                 break;
 
             case "Ducha":
-                GameGUI.MjeDescontaminado = true;
+                if (ObjetosPorJugador.TieneZoquete)
+                    GameGUI.MjeDescontaminado = true;
                 ObjetosPorJugador.TieneZoquete = false;
                 break;
 
