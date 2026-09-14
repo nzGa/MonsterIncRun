@@ -32,8 +32,8 @@ public static class ProjectBootstrap
         ("glass", new Color(0.55f, 0.72f, 0.82f, 0.45f)),
         ("window", new Color(0.25f, 0.32f, 0.38f)),
         ("fence", new Color(0.40f, 0.40f, 0.38f)),
-        ("pipe1", new Color(0.92f, 0.90f, 0.86f)),
-        ("pipe2", new Color(0.82f, 0.84f, 0.88f)),
+        ("pipe1", new Color(0.93f, 0.92f, 0.88f)),
+        ("pipe2", new Color(0.88f, 0.89f, 0.92f)),
         ("15_verti", new Color(0.62f, 0.58f, 0.48f)),
         ("7cdred", new Color(0.72f, 0.16f, 0.14f)),
         ("7cdcolor", new Color(0.20f, 0.55f, 0.28f)),
@@ -271,24 +271,32 @@ public static class ProjectBootstrap
                 dirty = true;
             }
 
-            if (esPipe && mat.HasProperty("_Color") && mat.color.maxColorComponent < 0.7f)
+            if (esPipe && mat.HasProperty("_Color") && mat.color.maxColorComponent < 0.75f)
             {
                 mat.color = name == "pipe2"
-                    ? new Color(0.82f, 0.84f, 0.88f)
-                    : new Color(0.92f, 0.90f, 0.86f);
+                    ? new Color(0.88f, 0.89f, 0.92f)
+                    : new Color(0.93f, 0.92f, 0.88f);
                 dirty = true;
             }
 
-            if (esPipe && mat.HasProperty("_Metallic") && mat.GetFloat("_Metallic") < 0.2f)
+            if (esPipe && mat.HasProperty("_Metallic"))
             {
-                mat.SetFloat("_Metallic", name == "pipe2" ? 0.7f : 0.62f);
-                dirty = true;
+                float metallic = mat.GetFloat("_Metallic");
+                if (metallic > 0.4f || metallic < 0.15f)
+                {
+                    mat.SetFloat("_Metallic", 0.28f);
+                    dirty = true;
+                }
             }
 
-            if (esPipe && mat.HasProperty("_Glossiness") && mat.GetFloat("_Glossiness") < 0.15f)
+            if (esPipe && mat.HasProperty("_Glossiness"))
             {
-                mat.SetFloat("_Glossiness", 0.4f);
-                dirty = true;
+                float gloss = mat.GetFloat("_Glossiness");
+                if (gloss < 0.25f || gloss > 0.7f)
+                {
+                    mat.SetFloat("_Glossiness", 0.42f);
+                    dirty = true;
+                }
             }
 
             if (dirty)

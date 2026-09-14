@@ -66,7 +66,9 @@ Aparecen al azar cuando arranca el servidor.
 
 ## Créditos de modelos
 
-Algunos modelos 3D los hice yo (como **Mike**). Otros están tomados de bibliotecas y modificados:
+Algunos modelos 3D los hice yo (como **Mike**). Otros están tomados de bibliotecas y modificados.
+
+La malla de Mike viene con la boca abierta: el FBX no tiene blendshapes, morpher ni hueso de mandíbula. Una sonrisa cerrada hay que modelarla en 3ds Max (u otra malla / morph); no se puede improvisar moviendo vértices.
 
 
 | Modelo        | Fuente                                        |
