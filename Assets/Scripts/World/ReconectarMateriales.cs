@@ -5,9 +5,11 @@ using UnityEngine;
 public static class ReconectarMateriales
 {
     static readonly Color VerdePiel = new Color(0.50f, 0.78f, 0.15f);
-    static readonly Color ColorPipe1 = new Color(0.78f, 0.78f, 0.76f);
-    static readonly Color ColorPipe2 = new Color(0.76f, 0.77f, 0.80f);
-    static readonly Color EmisionPipe = new Color(0.14f, 0.14f, 0.145f);
+    static readonly Color ColorPipe1 = new Color(0.92f, 0.91f, 0.88f);
+    static readonly Color ColorPipe2 = new Color(0.88f, 0.90f, 0.93f);
+    static readonly Color EmisionPipe = new Color(0.035f, 0.035f, 0.04f);
+    const float MetalicoPipe = 0.82f;
+    const float BrilloPipe = 0.58f;
 
     // FBX ByPolygon / connection order on the skinned "Mike" mesh.
     static readonly string[] SlotsMikePorIndice =
@@ -55,6 +57,8 @@ public static class ReconectarMateriales
                 }
 
                 if (AsegurarTexturaTuberia(shared[i], renderer))
+                    changed = true;
+                else if (AsegurarAlbedo(shared[i] != null ? shared[i] : actual, renderer))
                     changed = true;
                 else if (Reparar(shared[i] != null ? shared[i] : actual))
                     changed = true;
@@ -602,7 +606,9 @@ public static class ReconectarMateriales
             return false;
         if (Contiene(nombre, "pipe"))
             return true;
-        return string.Equals(nombre, "metal", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(nombre, "metal", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(nombre, "fence", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(nombre, "chim", StringComparison.OrdinalIgnoreCase);
     }
 
     static bool NombreEnJerarquia(Transform t, string needle)
@@ -623,9 +629,13 @@ public static class ReconectarMateriales
 
     static bool EsTuberia(Material material, Renderer renderer)
     {
-        if (Contiene(NombreMaterial(material), "pipe"))
+        if (EsNombreTuberia(NombreMaterial(material)))
             return true;
-        return renderer != null && NombreEnJerarquia(renderer.transform, "pipe");
+        if (renderer != null && (NombreEnJerarquia(renderer.transform, "pipe")
+            || NombreEnJerarquia(renderer.transform, "fence")
+            || NombreEnJerarquia(renderer.transform, "chim")))
+            return true;
+        return PareceTuboPorMalla(renderer);
     }
 
     static bool EsPipe2(Material material, Renderer renderer)
@@ -707,11 +717,9 @@ public static class ReconectarMateriales
             }
         }
 
-        _texMetal = Resources.Load<Texture2D>("Textures/metal");
-#if UNITY_EDITOR
-        if (_texMetal == null)
-            _texMetal = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/metal.jpg");
-#endif
+        _texMetal = CargarTex("Textures/metal",
+            "Assets/Art/Textures/metal.jpg",
+            "Assets/Resources/Textures/metal.jpg");
         return _texMetal;
     }
 
@@ -729,18 +737,19 @@ public static class ReconectarMateriales
         var tex = TexturaMetal();
         if (tex != null && material.HasProperty("_MainTex"))
         {
+            tex.wrapMode = TextureWrapMode.Repeat;
             material.mainTexture = tex;
-            material.mainTextureScale = new Vector2(2f, 2f);
+            material.mainTextureScale = new Vector2(4.5f, 2f);
         }
 
         if (material.HasProperty("_Color"))
             material.color = color;
         if (material.HasProperty("_Metallic"))
-            material.SetFloat("_Metallic", 0.28f);
+            material.SetFloat("_Metallic", MetalicoPipe);
         if (material.HasProperty("_Glossiness"))
-            material.SetFloat("_Glossiness", 0.4f);
+            material.SetFloat("_Glossiness", BrilloPipe);
         if (material.HasProperty("_Smoothness"))
-            material.SetFloat("_Smoothness", 0.4f);
+            material.SetFloat("_Smoothness", BrilloPipe);
         if (material.HasProperty("_EmissionColor"))
         {
             material.EnableKeyword("_EMISSION");
@@ -867,5 +876,236 @@ public static class ReconectarMateriales
         if (nombre.EndsWith(sufijo))
             nombre = nombre.Substring(0, nombre.Length - sufijo.Length);
         return nombre;
+    }
+
+    static Texture _texAdoquin;
+    static Texture _texConcrete;
+    static Texture _texHexagon;
+    static Texture _texCliff;
+    static Texture _texMadera;
+
+    static bool AsegurarAlbedo(Material material, Renderer renderer)
+    {
+        if (material == null || !material.HasProperty("_MainTex"))
+            return false;
+        if (EsPiel(NombreMaterial(material)) || EsNombreOjo(NombreMaterial(material)))
+            return false;
+        if (EsVidrio(NombreMaterial(material)))
+            return false;
+
+        var rol = RolAlbedo(material, renderer);
+        if (rol == RolTextura.Ninguno)
+            return false;
+
+        var tex = TexturaDeRol(rol);
+        if (tex == null)
+            return false;
+
+        tex.wrapMode = TextureWrapMode.Repeat;
+        var anterior = material.mainTexture;
+        var scaleAntes = material.mainTextureScale;
+        var colorAntes = material.HasProperty("_Color") ? material.color : Color.white;
+
+        material.mainTexture = tex;
+        material.mainTextureScale = EscalaDeRol(rol, renderer);
+        if (material.HasProperty("_Color"))
+            material.color = TintDeRol(rol, material.color);
+
+        if (rol == RolTextura.Metal)
+        {
+            PintarTuberia(material, EsPipe2(material, renderer) ? ColorPipe2 : ColorPipe1);
+            return true;
+        }
+
+        if (material.HasProperty("_Metallic"))
+            material.SetFloat("_Metallic", 0f);
+        if (material.HasProperty("_Glossiness"))
+            material.SetFloat("_Glossiness", 0.18f);
+        if (material.HasProperty("_Smoothness"))
+            material.SetFloat("_Smoothness", 0.18f);
+
+        return anterior != tex
+            || scaleAntes != material.mainTextureScale
+            || (material.HasProperty("_Color") && material.color != colorAntes);
+    }
+
+    enum RolTextura
+    {
+        Ninguno,
+        Piso,
+        Pared,
+        BasePared,
+        Madera,
+        Metal
+    }
+
+    static bool EsVidrio(string nombre)
+    {
+        return Contiene(nombre, "glass") || Contiene(nombre, "window");
+    }
+
+    static RolTextura RolAlbedo(Material material, Renderer renderer)
+    {
+        var nombre = NombreMaterial(material);
+        var nodo = renderer != null ? renderer.gameObject.name : null;
+
+        if (EsNombreTuberia(nombre) || Contiene(nodo, "pipe") || Contiene(nodo, "fence") || Contiene(nodo, "chim"))
+            return RolTextura.Metal;
+        if (PareceTuboPorMalla(renderer))
+            return RolTextura.Metal;
+
+        if (Contiene(nombre, "madera") || Contiene(nombre, "wood") || Contiene(nombre, "Puerta"))
+            return RolTextura.Madera;
+        if (Contiene(nombre, "wallbase") || Contiene(nombre, "roof"))
+            return RolTextura.BasePared;
+        if (Contiene(nombre, "wall") || Contiene(nombre, "15_verti") || Contiene(nombre, "7cd"))
+            return RolTextura.Pared;
+        if (Contiene(nombre, "ground") || Contiene(nombre, "piso") || Contiene(nombre, "floor"))
+            return RolTextura.Piso;
+
+        if (!EnFabrica(renderer))
+            return RolTextura.Ninguno;
+
+        if (material.mainTexture != null)
+            return RolTextura.Ninguno;
+
+        var b = renderer.bounds.size;
+        bool piso = b.y < 1.6f && b.x > 6f && b.z > 6f;
+        if (piso)
+            return RolTextura.Piso;
+        bool pared = b.y > 3.5f && (b.x > 6f || b.z > 6f);
+        if (pared)
+            return RolTextura.Pared;
+        return RolTextura.Ninguno;
+    }
+
+    static Texture TexturaDeRol(RolTextura rol)
+    {
+        switch (rol)
+        {
+            case RolTextura.Piso:
+                return TexAdoquin() ?? TexHexagon() ?? TexConcrete();
+            case RolTextura.Pared:
+                return TexConcrete() ?? TexHexagon() ?? TexCliff();
+            case RolTextura.BasePared:
+                return TexCliff() ?? TexConcrete();
+            case RolTextura.Madera:
+                return TexMadera() ?? TexCliff();
+            case RolTextura.Metal:
+                return TexturaMetal();
+            default:
+                return null;
+        }
+    }
+
+    static Vector2 EscalaDeRol(RolTextura rol, Renderer renderer)
+    {
+        var b = renderer != null ? renderer.bounds.size : Vector3.one * 8f;
+        float span = Mathf.Max(b.x, b.z, 4f);
+        switch (rol)
+        {
+            case RolTextura.Piso:
+                return Vector2.one * Mathf.Clamp(span * 0.35f, 8f, 18f);
+            case RolTextura.Pared:
+                return Vector2.one * Mathf.Clamp(span * 0.22f, 4f, 10f);
+            case RolTextura.BasePared:
+                return Vector2.one * Mathf.Clamp(span * 0.18f, 3f, 8f);
+            case RolTextura.Madera:
+                return new Vector2(2.5f, 2.5f);
+            case RolTextura.Metal:
+                return new Vector2(4.5f, 2f);
+            default:
+                return Vector2.one;
+        }
+    }
+
+    static Color TintDeRol(RolTextura rol, Color actual)
+    {
+        switch (rol)
+        {
+            case RolTextura.Piso:
+                return Color.white;
+            case RolTextura.Pared:
+                return new Color(0.96f, 0.93f, 0.86f);
+            case RolTextura.BasePared:
+                return new Color(0.90f, 0.86f, 0.78f);
+            case RolTextura.Madera:
+                return Color.white;
+            default:
+                return actual.maxColorComponent < 0.35f ? Color.white : actual;
+        }
+    }
+
+    static bool PareceTuboPorMalla(Renderer renderer)
+    {
+        if (renderer == null || !EnFabrica(renderer))
+            return false;
+        if (EsVidrio(renderer.gameObject.name) || Contiene(renderer.gameObject.name, "wall")
+            || Contiene(renderer.gameObject.name, "ground") || Contiene(renderer.gameObject.name, "logo"))
+            return false;
+
+        var b = renderer.bounds.size;
+        float max = Mathf.Max(b.x, Mathf.Max(b.y, b.z));
+        float min = Mathf.Min(b.x, Mathf.Min(b.y, b.z));
+        float mid = b.x + b.y + b.z - max - min;
+        if (max < 3.5f || min > 1.35f)
+            return false;
+        return max > min * 6.5f && mid < 2.4f;
+    }
+
+    static Texture CargarTex(string resource, params string[] assetPaths)
+    {
+        var tex = Resources.Load<Texture>(resource);
+        if (tex != null)
+            return tex;
+#if UNITY_EDITOR
+        if (assetPaths != null)
+        {
+            for (int i = 0; i < assetPaths.Length; i++)
+            {
+                tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture>(assetPaths[i]);
+                if (tex != null)
+                    return tex;
+            }
+        }
+#endif
+        return null;
+    }
+
+    static Texture TexAdoquin()
+    {
+        if (_texAdoquin == null)
+            _texAdoquin = CargarTex("Textures/floor_adoquin", "Assets/Art/Textures/floor_adoquin.jpg");
+        return _texAdoquin;
+    }
+
+    static Texture TexConcrete()
+    {
+        if (_texConcrete == null)
+            _texConcrete = CargarTex("Textures/floor_concrete", "Assets/Art/Textures/floor_concrete.jpg");
+        return _texConcrete;
+    }
+
+    static Texture TexHexagon()
+    {
+        if (_texHexagon == null)
+            _texHexagon = CargarTex("Textures/floor_hexagon", "Assets/Art/Textures/floor_hexagon.jpg");
+        return _texHexagon;
+    }
+
+    static Texture TexCliff()
+    {
+        if (_texCliff == null)
+            _texCliff = CargarTex("Textures/Cliff",
+                "Assets/Art/Textures/Cliff (Layered Rock).jpg",
+                "Assets/Resources/Textures/Cliff.jpg");
+        return _texCliff;
+    }
+
+    static Texture TexMadera()
+    {
+        if (_texMadera == null)
+            _texMadera = CargarTex("Textures/madera", "Assets/Art/Textures/madera.GIF");
+        return _texMadera;
     }
 }

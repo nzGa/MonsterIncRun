@@ -141,15 +141,36 @@ public class SpawnObjetos : MonoBehaviour
 
         if (GameObject.FindGameObjectsWithTag("SpawnTubo").Length == 0)
         {
-            CrearPunto("SpawnTubo1", "SpawnTubo", new Vector3(4, 1, -6));
-            CrearPunto("SpawnTubo2", "SpawnTubo", new Vector3(-6, 1, 4));
-            CrearPunto("SpawnTubo3", "SpawnTubo", new Vector3(10, 1, 2));
+            var tubos = new[]
+            {
+                new Vector3(4f, 1f, -6f),
+                new Vector3(-6f, 1f, 4f),
+                new Vector3(10f, 1f, 2f),
+                new Vector3(-12f, 1f, -8f),
+                new Vector3(14f, 1f, 12f),
+                new Vector3(-18f, 1f, 10f),
+                new Vector3(8f, 1f, -16f),
+                new Vector3(-4f, 1f, 16f),
+                new Vector3(18f, 1f, -4f)
+            };
+            for (int i = 0; i < tubos.Length; i++)
+                CrearPunto("SpawnTubo" + (i + 1), "SpawnTubo", tubos[i]);
         }
         if (GameObject.FindGameObjectsWithTag("SpawnCaja").Length == 0)
         {
-            CrearPunto("SpawnCaja1", "SpawnCaja", new Vector3(-3, 1, -8));
-            CrearPunto("SpawnCaja2", "SpawnCaja", new Vector3(6, 1, -2));
-            CrearPunto("SpawnCaja3", "SpawnCaja", new Vector3(-8, 1, -2));
+            var cajas = new[]
+            {
+                new Vector3(-3f, 1f, -8f),
+                new Vector3(6f, 1f, -2f),
+                new Vector3(-8f, 1f, -2f),
+                new Vector3(12f, 1f, 8f),
+                new Vector3(-14f, 1f, 6f),
+                new Vector3(2f, 1f, 14f),
+                new Vector3(-10f, 1f, -14f),
+                new Vector3(16f, 1f, -10f)
+            };
+            for (int i = 0; i < cajas.Length; i++)
+                CrearPunto("SpawnCaja" + (i + 1), "SpawnCaja", cajas[i]);
         }
         if (GameObject.FindGameObjectsWithTag("SpawnMike").Length == 0)
             CrearPunto("SpawnMike", "SpawnMike", new Vector3(0, 1, -14));
@@ -183,10 +204,11 @@ public class SpawnObjetos : MonoBehaviour
 
     void SpawnTubos()
     {
-        foreach (var spawnPoint in GameObject.FindGameObjectsWithTag("SpawnTubo"))
+        var posiciones = ElegirPosiciones("SpawnTubo", 3, 8f, 22f, 6.5f);
+        for (int i = 0; i < posiciones.Count; i++)
         {
             var go = Instanciar("Tubo", "Tubo", tubo, "Models/tubo", "Assets/Resources/Models/tubo.FBX",
-                spawnPoint.transform.position, PrimitiveType.Capsule, new Color(1f, 0.85f, 0.1f), 1.15f, false);
+                posiciones[i], PrimitiveType.Capsule, new Color(1f, 0.85f, 0.1f), 1.15f, false);
             if (go.GetComponent<Rotar>() == null)
                 go.AddComponent<Rotar>();
         }
@@ -194,12 +216,79 @@ public class SpawnObjetos : MonoBehaviour
 
     void SpawnCajas()
     {
-        foreach (var spawnPoint in GameObject.FindGameObjectsWithTag("SpawnCaja"))
+        var posiciones = ElegirPosiciones("SpawnCaja", 3, 7f, 20f, 5.5f);
+        for (int i = 0; i < posiciones.Count; i++)
         {
             var go = Instanciar("Caja", "Caja", caja, "Models/caja", "Assets/Resources/Models/caja.FBX",
-                spawnPoint.transform.position, PrimitiveType.Cube, new Color(0.8f, 0.2f, 0.2f), 0.95f, false);
+                posiciones[i], PrimitiveType.Cube, new Color(0.8f, 0.2f, 0.2f), 0.95f, false);
             if (go.GetComponent<ContenidoCaja>() == null)
                 go.AddComponent<ContenidoCaja>();
+        }
+    }
+
+    static System.Collections.Generic.List<Vector3> ElegirPosiciones(
+        string tag, int cantidad, float minR, float maxR, float minDist)
+    {
+        var candidatos = new System.Collections.Generic.List<Vector3>();
+        var puntos = GameObject.FindGameObjectsWithTag(tag);
+        for (int i = 0; i < puntos.Length; i++)
+        {
+            if (puntos[i] != null)
+                candidatos.Add(OffsetAleatorio(puntos[i].transform.position, 1.5f, 6f));
+        }
+
+        while (candidatos.Count < cantidad + 6)
+            candidatos.Add(PosicionAnillo(minR, maxR));
+
+        Barajar(candidatos);
+
+        var elegidos = new System.Collections.Generic.List<Vector3>();
+        for (int i = 0; i < candidatos.Count && elegidos.Count < cantidad; i++)
+        {
+            var p = candidatos[i];
+            bool lejos = true;
+            for (int j = 0; j < elegidos.Count; j++)
+            {
+                var d = elegidos[j] - p;
+                d.y = 0f;
+                if (d.sqrMagnitude < minDist * minDist)
+                {
+                    lejos = false;
+                    break;
+                }
+            }
+            if (lejos)
+                elegidos.Add(p);
+        }
+
+        while (elegidos.Count < cantidad)
+            elegidos.Add(PosicionAnillo(minR, maxR));
+
+        return elegidos;
+    }
+
+    static Vector3 PosicionAnillo(float minR, float maxR)
+    {
+        float ang = UnityEngine.Random.Range(0f, 360f) * Mathf.Deg2Rad;
+        float r = UnityEngine.Random.Range(minR, maxR);
+        return new Vector3(Mathf.Cos(ang) * r, 1f, Mathf.Sin(ang) * r);
+    }
+
+    static Vector3 OffsetAleatorio(Vector3 origen, float min, float max)
+    {
+        float ang = UnityEngine.Random.Range(0f, 360f) * Mathf.Deg2Rad;
+        float r = UnityEngine.Random.Range(min, max);
+        return origen + new Vector3(Mathf.Cos(ang) * r, 0f, Mathf.Sin(ang) * r);
+    }
+
+    static void Barajar(System.Collections.Generic.List<Vector3> lista)
+    {
+        for (int i = lista.Count - 1; i > 0; i--)
+        {
+            int j = UnityEngine.Random.Range(0, i + 1);
+            var tmp = lista[i];
+            lista[i] = lista[j];
+            lista[j] = tmp;
         }
     }
 

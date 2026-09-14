@@ -46,11 +46,7 @@ public class MouseOrbit : MonoBehaviour
 
     static bool PuedeOrbitar()
     {
-        if (!GestionaMultiJugador.ControlJugadorActivo)
-            return false;
-        if (Application.isEditor && Cursor.lockState != CursorLockMode.Locked)
-            return Input.GetMouseButton(1);
-        return true;
+        return GestionaMultiJugador.ControlJugadorActivo;
     }
 
     void ResolverCamara()

@@ -44,6 +44,7 @@ public class GameGUI : MonoBehaviour
     Image _panelMensaje;
     Text _mensaje;
     Text _nombre;
+    Text _nombreChip;
     Text _timer;
     Canvas _hud;
     string _textoMensaje;
@@ -106,9 +107,11 @@ public class GameGUI : MonoBehaviour
 
     void ActualizarNombre()
     {
-        if (_nombre == null)
-            return;
-        _nombre.text = NombreVisible();
+        var visible = NombreVisible();
+        if (_nombre != null)
+            _nombre.text = visible;
+        if (_nombreChip != null)
+            _nombreChip.text = visible;
     }
 
     static string NombreVisible()
@@ -330,25 +333,31 @@ public class GameGUI : MonoBehaviour
 
         var barra = UiFactory.AddTopBar(canvas, "BarraSuperior", 118f, new Color(0.03f, 0.05f, 0.04f, 0.88f));
 
-        var chip = UiFactory.AddPanelFixed(barra.transform, "Jugador", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(18f, 0f), new Vector2(300f, 86f), new Color(0.08f, 0.12f, 0.08f, 0.95f));
+        var chip = UiFactory.AddPanelFixed(barra.transform, "Jugador", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(16f, 0f), new Vector2(260f, 88f), new Color(0.08f, 0.12f, 0.08f, 0.95f));
         var avatar = UiFactory.AddImageFixed(chip.transform, "Avatar", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(10f, 0f), new Vector2(64f, 64f), Color.white);
         avatar.preserveAspect = true;
         var texMike = UiFactory.LoadSprite("UI/icono_mike_sullivan");
         if (texMike != null)
             avatar.sprite = texMike;
 
-        _nombre = UiFactory.AddText(chip.transform, "Nombre", "Mike", 36, TextAnchor.MiddleLeft, Color.white, true, FontStyle.Bold);
-        _nombre.rectTransform.anchorMin = Vector2.zero;
-        _nombre.rectTransform.anchorMax = Vector2.one;
-        _nombre.rectTransform.offsetMin = new Vector2(84f, 8f);
-        _nombre.rectTransform.offsetMax = new Vector2(-12f, -8f);
+        _nombreChip = UiFactory.AddText(chip.transform, "NombreChip", "Mike", 32, TextAnchor.MiddleLeft, Color.white, true, FontStyle.Bold);
+        _nombreChip.rectTransform.anchorMin = Vector2.zero;
+        _nombreChip.rectTransform.anchorMax = Vector2.one;
+        _nombreChip.rectTransform.offsetMin = new Vector2(82f, 6f);
+        _nombreChip.rectTransform.offsetMax = new Vector2(-8f, -6f);
+        _nombreChip.horizontalOverflow = HorizontalWrapMode.Overflow;
+        _nombreChip.verticalOverflow = VerticalWrapMode.Overflow;
+        _nombreChip.resizeTextForBestFit = true;
+        _nombreChip.resizeTextMinSize = 18;
+        _nombreChip.resizeTextMaxSize = 32;
 
-        var timerPanel = UiFactory.AddPanelFixed(barra.transform, "Timer", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(280f, 90f), new Color(0.08f, 0.12f, 0.08f, 0.95f));
-        var timerLabel = UiFactory.AddText(timerPanel.transform, "Etiqueta", "TIEMPO", 18, TextAnchor.UpperCenter, new Color(1f, 1f, 1f, 0.75f), true, FontStyle.Bold);
-        timerLabel.rectTransform.anchorMin = new Vector2(0.08f, 0.55f);
-        timerLabel.rectTransform.anchorMax = new Vector2(0.92f, 0.95f);
-        timerLabel.rectTransform.offsetMin = Vector2.zero;
-        timerLabel.rectTransform.offsetMax = Vector2.zero;
+        var timerPanel = UiFactory.AddPanelFixed(barra.transform, "Timer", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(300f, 92f), new Color(0.08f, 0.12f, 0.08f, 0.95f));
+        _nombre = UiFactory.AddText(timerPanel.transform, "Nombre", "Mike", 20, TextAnchor.UpperCenter, new Color(1f, 1f, 1f, 0.92f), true, FontStyle.Bold);
+        _nombre.rectTransform.anchorMin = new Vector2(0.08f, 0.55f);
+        _nombre.rectTransform.anchorMax = new Vector2(0.92f, 0.96f);
+        _nombre.rectTransform.offsetMin = Vector2.zero;
+        _nombre.rectTransform.offsetMax = Vector2.zero;
+        _nombre.horizontalOverflow = HorizontalWrapMode.Overflow;
 
         _timer = UiFactory.AddText(timerPanel.transform, "Valor", "15:00", 48, TextAnchor.LowerCenter, Color.white, true, FontStyle.Bold);
         _timer.rectTransform.anchorMin = new Vector2(0.06f, 0.04f);
@@ -357,8 +366,8 @@ public class GameGUI : MonoBehaviour
         _timer.rectTransform.offsetMax = Vector2.zero;
         _timer.horizontalOverflow = HorizontalWrapMode.Overflow;
 
-        const float slot = 92f;
-        const float gap = 10f;
+        const float slot = 76f;
+        const float gap = 8f;
         _slotZapato = Slot.Crear(barra.transform, "Zapato", "UI/zapato", "Zapato", -24f - 3f * (slot + gap), slot);
         _slotZoquete = Slot.Crear(barra.transform, "Zoquete", "UI/zoquete", "Media", -24f - 2f * (slot + gap), slot);
         _slotCasco = Slot.Crear(barra.transform, "Casco", "UI/casco", "Casco", -24f - 1f * (slot + gap), slot);
