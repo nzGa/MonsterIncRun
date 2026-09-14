@@ -15,6 +15,7 @@ public static class ReconectarMateriales
     static Dictionary<string, Material> _porNombre;
     static Material[] _mike;
     static Material _pielFallback;
+    static Texture _texMetal;
 
     public static void En(GameObject root)
     {
@@ -25,6 +26,9 @@ public static class ReconectarMateriales
 
         foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
         {
+            if (renderer is ParticleSystemRenderer || renderer.GetComponent<TextMesh>() != null)
+                continue;
+
             var shared = renderer.sharedMaterials;
             if (shared == null || shared.Length == 0)
                 continue;
@@ -38,10 +42,11 @@ public static class ReconectarMateriales
                 {
                     shared[i] = reemplazo;
                     changed = true;
-                    continue;
                 }
 
-                if (Reparar(actual))
+                if (AsegurarTexturaTuberia(shared[i]))
+                    changed = true;
+                else if (Reparar(shared[i] != null ? shared[i] : actual))
                     changed = true;
             }
 
@@ -370,8 +375,6 @@ public static class ReconectarMateriales
         {
             piel = UnityEngine.Object.Instantiate(piel);
             piel.name = "Piel";
-            if (piel.HasProperty("_MainTex"))
-                piel.mainTexture = null;
         }
 
         if (piel != null)
@@ -379,6 +382,7 @@ public static class ReconectarMateriales
             AmbienteVisual.RepararShader(piel);
             if (piel.HasProperty("_Color"))
                 piel.color = VerdePiel;
+            AsignarTexturaPiel(piel);
             return piel;
         }
 
@@ -391,9 +395,106 @@ public static class ReconectarMateriales
             {
                 _pielFallback = new Material(shader) { name = "Piel" };
                 _pielFallback.color = VerdePiel;
+                AsignarTexturaPiel(_pielFallback);
             }
         }
         return _pielFallback;
+    }
+
+    static Texture2D _pielTex;
+
+    static void AsignarTexturaPiel(Material piel)
+    {
+        if (piel == null || !piel.HasProperty("_MainTex"))
+            return;
+        piel.mainTexture = TexturaPielSutil();
+        piel.mainTextureScale = Vector2.one;
+        if (piel.HasProperty("_Color"))
+            piel.color = VerdePiel;
+    }
+
+    static Texture2D TexturaPielSutil()
+    {
+        if (_pielTex != null)
+            return _pielTex;
+
+        const int n = 256;
+        var tex = new Texture2D(n, n, TextureFormat.RGB24, true);
+        tex.name = "PielSutil";
+        tex.wrapMode = TextureWrapMode.Repeat;
+        tex.filterMode = FilterMode.Bilinear;
+        var pixels = new Color[n * n];
+        for (int y = 0; y < n; y++)
+        {
+            float v = y / (float)(n - 1);
+            for (int x = 0; x < n; x++)
+            {
+                float theta = (x / (float)n) * Mathf.PI * 2f;
+                float px = Mathf.Cos(theta);
+                float pz = Mathf.Sin(theta);
+                float py = v * 2f;
+                float n1 = Fbm3(px * 1.7f, py * 1.7f, pz * 1.7f);
+                float n2 = Fbm3(px * 4.1f + 19f, py * 4.1f + 8f, pz * 4.1f + 3f);
+                float mottling = (n1 * 0.7f + n2 * 0.3f - 0.5f) * 0.045f;
+                float g = Mathf.Clamp01(0.97f + mottling);
+                pixels[y * n + x] = new Color(g, Mathf.Clamp01(g + mottling * 0.2f), Mathf.Clamp01(g - 0.008f), 1f);
+            }
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply(true, true);
+        tex.hideFlags = HideFlags.HideAndDontSave;
+        _pielTex = tex;
+        return tex;
+    }
+
+    static float Fbm3(float x, float y, float z)
+    {
+        float total = 0f;
+        float amp = 1f;
+        float freq = 1f;
+        float norm = 0f;
+        for (int i = 0; i < 4; i++)
+        {
+            total += ValueNoise3(x * freq, y * freq, z * freq) * amp;
+            norm += amp;
+            amp *= 0.5f;
+            freq *= 2.02f;
+        }
+        return total / norm;
+    }
+
+    static float ValueNoise3(float x, float y, float z)
+    {
+        int ix = Mathf.FloorToInt(x);
+        int iy = Mathf.FloorToInt(y);
+        int iz = Mathf.FloorToInt(z);
+        float fx = x - ix;
+        float fy = y - iy;
+        float fz = z - iz;
+        float u = fx * fx * (3f - 2f * fx);
+        float v = fy * fy * (3f - 2f * fy);
+        float w = fz * fz * (3f - 2f * fz);
+        float n000 = Hash31(ix, iy, iz);
+        float n100 = Hash31(ix + 1, iy, iz);
+        float n010 = Hash31(ix, iy + 1, iz);
+        float n110 = Hash31(ix + 1, iy + 1, iz);
+        float n001 = Hash31(ix, iy, iz + 1);
+        float n101 = Hash31(ix + 1, iy, iz + 1);
+        float n011 = Hash31(ix, iy + 1, iz + 1);
+        float n111 = Hash31(ix + 1, iy + 1, iz + 1);
+        float nx00 = Mathf.Lerp(n000, n100, u);
+        float nx10 = Mathf.Lerp(n010, n110, u);
+        float nx01 = Mathf.Lerp(n001, n101, u);
+        float nx11 = Mathf.Lerp(n011, n111, u);
+        return Mathf.Lerp(Mathf.Lerp(nx00, nx10, v), Mathf.Lerp(nx01, nx11, v), w);
+    }
+
+    static float Hash31(int x, int y, int z)
+    {
+        uint n = unchecked((uint)(x * 374761393 + y * 668265263 + z * 1274126177));
+        n = (n ^ (n >> 13)) * 1274126177u;
+        return (n & 0xFFFFFFu) / 16777215f;
     }
 
     static bool ColorCasiBlanco(Color c)
@@ -546,6 +647,74 @@ public static class ReconectarMateriales
         return haystack.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
+    static bool EsNombreTuberia(string nombre)
+    {
+        if (string.IsNullOrEmpty(nombre))
+            return false;
+        if (Contiene(nombre, "pipe"))
+            return true;
+        return string.Equals(nombre, "metal", StringComparison.OrdinalIgnoreCase);
+    }
+
+    static Texture TexturaMetal()
+    {
+        if (_texMetal != null)
+            return _texMetal;
+
+        var metal = Resources.Load<Material>("Models/Materials/metal");
+        if (metal != null)
+        {
+            AmbienteVisual.RepararShader(metal);
+            if (metal.mainTexture != null)
+            {
+                _texMetal = metal.mainTexture;
+                return _texMetal;
+            }
+        }
+
+        _texMetal = Resources.Load<Texture2D>("Textures/metal");
+#if UNITY_EDITOR
+        if (_texMetal == null)
+            _texMetal = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/metal.jpg");
+#endif
+        return _texMetal;
+    }
+
+    static bool AsegurarTexturaTuberia(Material material)
+    {
+        var nombre = NombreMaterial(material);
+        if (material == null || !EsNombreTuberia(nombre))
+            return false;
+
+        AmbienteVisual.RepararShader(material);
+        var tex = TexturaMetal();
+        if (tex == null || !material.HasProperty("_MainTex"))
+            return false;
+        if (material.mainTexture != null)
+            return false;
+
+        material.mainTexture = tex;
+        if (Contiene(nombre, "pipe"))
+            material.mainTextureScale = new Vector2(2f, 2f);
+
+        if (material.HasProperty("_Color"))
+        {
+            var c = material.color;
+            if (c.maxColorComponent < 0.7f || ColorCasiBlanco(c))
+                material.color = new Color(0.88f, 0.88f, 0.9f);
+        }
+
+        if (Contiene(nombre, "pipe"))
+        {
+            if (material.HasProperty("_Metallic") && material.GetFloat("_Metallic") < 0.2f)
+                material.SetFloat("_Metallic", 0.62f);
+            if (material.HasProperty("_Glossiness") && material.GetFloat("_Glossiness") < 0.15f)
+                material.SetFloat("_Glossiness", 0.4f);
+        }
+
+        return true;
+    }
+
     static Material BuscarReemplazo(Dictionary<string, Material> catalogo, Material actual, Renderer renderer)
     {
         if (catalogo.Count == 0)
@@ -554,6 +723,23 @@ public static class ReconectarMateriales
         var nombre = NombreMaterial(actual);
         if (!string.IsNullOrEmpty(nombre) && catalogo.TryGetValue(nombre, out var porNombre))
             return porNombre;
+
+        if (!string.IsNullOrEmpty(nombre))
+        {
+            int colon = nombre.IndexOf(':');
+            if (colon > 0 && catalogo.TryGetValue(nombre.Substring(0, colon), out var porBase))
+                return porBase;
+        }
+
+        if (EsNombreTuberia(nombre))
+        {
+            if (Contiene(nombre, "pipe2") && catalogo.TryGetValue("pipe2", out var pipe2))
+                return pipe2;
+            if (catalogo.TryGetValue("pipe1", out var pipe1))
+                return pipe1;
+            if (catalogo.TryGetValue("metal", out var metal))
+                return metal;
+        }
 
         var rendererName = renderer != null ? renderer.gameObject.name : null;
         if (!string.IsNullOrEmpty(rendererName) && catalogo.TryGetValue(rendererName, out var porRenderer))
