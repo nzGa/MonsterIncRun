@@ -2,12 +2,13 @@
 
 Juego 3D multijugador basado en *Monsters, Inc.*
 
-Desarrollado desde cero con fines educativos, sin experiencia previa en las herramientas utilizadas:
+Desarrollado desde cero con fines educativos, sin experiencia previa en las herramientas utilizadas.
 
-- Terreno e interacciones de red hecho Unity 4.6 y migrado a Unity 6.
-- Modelado 3D y animaciones: Autodesk 3ds Max 2014
+Hecho con:
 
-En la migración del proyecto a **Unity 6** (Built-in Render Pipeline), pasó temporalmente a un modo un jugador y UI en Canvas (uGUI).
+- **Unity 4.6** (2014): terreno, lógica de red y el juego original.
+- **3ds Max 2014**: modelos 3D y animaciones (Mike, fábrica, objetos).
+- **Unity 6** (Built-in Render Pipeline): migración. El Terrain de Unity 4 no carga en Unity 6; el paisaje se reconstruye con el heightmap y las posiciones de árboles/rocas. El multijugador todavía no está (un jugador). Menús y HUD pasaron de OnGUI a Canvas.
 
 ## Cómo abrirlo en Unity 6
 
@@ -48,8 +49,6 @@ En esta versión hay **modo un jugador**: Mike spawnea local, los ítems y la pu
 | `Esc`           | Menú (desconectar / salir) |
 
 
-
-
 ### Objetos en el mapa
 
 Aparecen al azar cuando arranca el servidor.
@@ -65,11 +64,11 @@ Aparecen al azar cuando arranca el servidor.
 | **Ducha**                     | Te descontamina.                                                                                                  |
 
 
-
-
 ## Créditos de modelos
 
-Algunos modelos 3D los hice yo (como **Mike**). Otros están tomados de bibliotecas y modificados:
+Algunos modelos 3D los hice yo (como **Mike**). Otros están tomados de bibliotecas y modificados.
+
+La malla de Mike viene con la boca abierta: el FBX no tiene blendshapes, morpher ni hueso de mandíbula. Una sonrisa cerrada hay que modelarla en 3ds Max (u otra malla / morph); no se puede improvisar moviendo vértices.
 
 
 | Modelo        | Fuente                                        |
@@ -115,7 +114,6 @@ Unity solo mira `Assets/`. Por eso el Terrain, los prefabs de Unity 4 y los `.js
 | `SpawnObjetos`          | World   | Puerta, ducha, tubos y cajas |
 | `ObtieneObjeto`         | Player  | Ítems y victoria             |
 | `ThirdPersonController` | Player  | Movimiento y animaciones     |
-
 
 
 
