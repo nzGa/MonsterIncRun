@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 
+// Orbits Camera.main around this transform. Mouse yaw never rotates the player.
 public class MouseOrbit : MonoBehaviour
 {
     public float alturaOjos = 0.6f;

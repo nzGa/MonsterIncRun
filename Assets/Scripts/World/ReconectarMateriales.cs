@@ -7,9 +7,12 @@ public static class ReconectarMateriales
     static readonly Color VerdePiel = new Color(0.50f, 0.78f, 0.15f);
     static readonly Color ColorPipe1 = Color.white;
     static readonly Color ColorPipe2 = new Color(0.96f, 0.97f, 1f);
-    static readonly Color EmisionPipe = new Color(0.16f, 0.13f, 0.10f);
-    const float MetalicoPipe = 0.74f;
-    const float BrilloPipe = 0.38f;
+    static readonly Color ColorVidrio = new Color(0.38f, 0.78f, 0.88f, 0.38f);
+    static readonly Color ColorChimenea = new Color(0.92f, 0.94f, 0.96f, 1f);
+    const float MetalicoPipe = 0.58f;
+    const float BrilloPipe = 0.42f;
+    const float MetalicoChim = 0.72f;
+    const float BrilloChim = 0.48f;
 
     // FBX ByPolygon / connection order on the skinned "Mike" mesh.
     static readonly string[] SlotsMikePorIndice =
@@ -33,6 +36,8 @@ public static class ReconectarMateriales
         {
             if (renderer is ParticleSystemRenderer || renderer.GetComponent<TextMesh>() != null)
                 continue;
+            if (renderer.GetComponentInParent<Canvas>() != null)
+                continue;
 
             var shared = renderer.sharedMaterials;
             if (shared == null || shared.Length == 0)
@@ -43,8 +48,20 @@ public static class ReconectarMateriales
             {
                 var actual = shared[i];
                 var reemplazo = BuscarReemplazo(catalogo, actual, renderer);
-                if (EsPipeNombrado(renderer) || Contiene(NombreMaterial(actual), "pipe")
-                    || PareceTuboPorMalla(renderer))
+                if (EsVidrioNombrado(actual, renderer))
+                {
+                    var vidrio = MaterialVidrio(actual, renderer, catalogo);
+                    if (vidrio != null)
+                        reemplazo = vidrio;
+                }
+                else if (EsTorre(actual, renderer))
+                {
+                    var chim = MaterialChimenea();
+                    if (chim != null)
+                        reemplazo = chim;
+                }
+                else if (EsPipeNombrado(renderer) || Contiene(NombreMaterial(actual), "pipe")
+                    || EsCerca(actual, renderer) || PareceTuboPorMalla(renderer))
                 {
                     var forzado = MaterialTuberia(EsPipe2(actual, renderer));
                     if (forzado != null)
@@ -57,11 +74,22 @@ public static class ReconectarMateriales
                     changed = true;
                 }
 
-                if (AsegurarTexturaTuberia(shared[i], renderer))
+                var aplicado = shared[i] != null ? shared[i] : actual;
+                if (EsVidrioNombrado(aplicado, renderer))
+                {
+                    if (PintarVidrio(aplicado))
+                        changed = true;
+                }
+                else if (EsTorre(aplicado, renderer))
+                {
+                    if (PintarChimenea(aplicado))
+                        changed = true;
+                }
+                else if (AsegurarTexturaTuberia(aplicado, renderer))
                     changed = true;
-                else if (AsegurarAlbedo(shared[i] != null ? shared[i] : actual, renderer))
+                else if (AsegurarAlbedo(aplicado, renderer))
                     changed = true;
-                else if (Reparar(shared[i] != null ? shared[i] : actual))
+                else if (Reparar(aplicado))
                     changed = true;
             }
 
@@ -70,6 +98,8 @@ public static class ReconectarMateriales
         }
 
         ForzarPipesEnFabrica(root);
+        ForzarChimeneasEnFabrica(root);
+        ForzarVidriosEnFabrica(root);
     }
 
     public static void EnMike(GameObject root)
@@ -95,6 +125,8 @@ public static class ReconectarMateriales
         foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
         {
             if (renderer.GetComponent<TextMesh>() != null)
+                continue;
+            if (renderer.GetComponentInParent<Canvas>() != null)
                 continue;
 
             if (EsSplineAyuda(renderer))
@@ -602,6 +634,10 @@ public static class ReconectarMateriales
 
     static Material _pipe1Live;
     static Material _pipe2Live;
+    static Material _chimLive;
+    static Material _glassLive;
+    static Material _windowLive;
+    static Texture _texGalv;
 
     static bool EsNombreTuberia(string nombre)
     {
@@ -647,7 +683,9 @@ public static class ReconectarMateriales
         {
             if (renderer == null || renderer is ParticleSystemRenderer || renderer.GetComponent<TextMesh>() != null)
                 continue;
-            if (!EsTuberia(renderer.sharedMaterial, renderer))
+            if (EsVidrioNombrado(renderer.sharedMaterial, renderer) || EsTorre(renderer.sharedMaterial, renderer))
+                continue;
+            if (!EsTuberia(renderer.sharedMaterial, renderer) && !EsCerca(renderer.sharedMaterial, renderer))
                 continue;
 
             var mat = MaterialTuberia(EsPipe2(renderer.sharedMaterial, renderer));
@@ -670,6 +708,83 @@ public static class ReconectarMateriales
         }
     }
 
+    static void ForzarChimeneasEnFabrica(GameObject root)
+    {
+        if (root == null)
+            return;
+
+        var chim = MaterialChimenea();
+        if (chim == null)
+            return;
+
+        foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer == null || renderer is ParticleSystemRenderer || renderer.GetComponent<TextMesh>() != null)
+                continue;
+            if (!EsTorre(renderer.sharedMaterial, renderer))
+                continue;
+
+            PintarChimenea(chim);
+
+            var shared = renderer.sharedMaterials;
+            if (shared == null || shared.Length == 0)
+            {
+                renderer.sharedMaterial = chim;
+                continue;
+            }
+
+            var siguiente = new Material[shared.Length];
+            for (int i = 0; i < shared.Length; i++)
+                siguiente[i] = chim;
+            renderer.sharedMaterials = siguiente;
+        }
+    }
+
+    static void ForzarVidriosEnFabrica(GameObject root)
+    {
+        if (root == null)
+            return;
+
+        var catalogo = Catalogo();
+        foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer == null || renderer is ParticleSystemRenderer || renderer.GetComponent<TextMesh>() != null)
+                continue;
+            if (!EsVidrioNombrado(renderer.sharedMaterial, renderer))
+                continue;
+
+            var shared = renderer.sharedMaterials;
+            if (shared == null || shared.Length == 0)
+            {
+                var unico = MaterialVidrio(null, renderer, catalogo);
+                if (unico != null)
+                {
+                    PintarVidrio(unico);
+                    renderer.sharedMaterial = unico;
+                }
+                continue;
+            }
+
+            var siguiente = (Material[])shared.Clone();
+            bool changed = false;
+            for (int i = 0; i < siguiente.Length; i++)
+            {
+                if (!EsVidrioNombrado(siguiente[i], renderer))
+                    continue;
+                var vidrio = MaterialVidrio(siguiente[i], renderer, catalogo);
+                if (vidrio != null && vidrio != siguiente[i])
+                {
+                    siguiente[i] = vidrio;
+                    changed = true;
+                }
+                if (PintarVidrio(siguiente[i]))
+                    changed = true;
+            }
+            if (changed)
+                renderer.sharedMaterials = siguiente;
+        }
+    }
+
     static bool EsPipe2(Material material, Renderer renderer)
     {
         if (Contiene(NombreMaterial(material), "pipe2"))
@@ -684,6 +799,9 @@ public static class ReconectarMateriales
             || Contiene(nombre, "roof")
             || Contiene(nombre, "ground")
             || Contiene(nombre, "wall")
+            || Contiene(nombre, "chim")
+            || Contiene(nombre, "tower")
+            || Contiene(nombre, "silo")
             || Contiene(nombre, "logo")
             || Contiene(nombre, "madera")
             || Contiene(nombre, "Piel")
@@ -731,6 +849,182 @@ public static class ReconectarMateriales
         var mat = new Material(shader) { name = nombre };
         PintarTuberia(mat, color);
         return mat;
+    }
+
+    static Material MaterialChimenea()
+    {
+        if (_chimLive != null)
+            return _chimLive;
+
+        var catalogo = Catalogo();
+        if (catalogo.TryGetValue("chim", out var chim) && chim != null)
+            _chimLive = chim;
+        else
+        {
+            var shader = ShaderTuberia();
+            if (shader == null)
+                return null;
+            _chimLive = new Material(shader) { name = "chim" };
+        }
+
+        PintarChimenea(_chimLive);
+        return _chimLive;
+    }
+
+    static Material MaterialVidrio(Material actual, Renderer renderer, Dictionary<string, Material> catalogo)
+    {
+        bool window = Contiene(NombreMaterial(actual), "window")
+            || (renderer != null && NombreEnJerarquia(renderer.transform, "window"));
+        if (window)
+        {
+            if (_windowLive != null)
+                return _windowLive;
+            if (catalogo != null && catalogo.TryGetValue("window", out var windowMat) && windowMat != null)
+                _windowLive = windowMat;
+            else if (catalogo != null && catalogo.TryGetValue("glass", out var glassAsWindow) && glassAsWindow != null)
+                _windowLive = glassAsWindow;
+            else
+            {
+                var shader = ShaderVidrio();
+                if (shader != null)
+                    _windowLive = new Material(shader) { name = "window" };
+            }
+            if (_windowLive != null)
+                PintarVidrio(_windowLive);
+            return _windowLive;
+        }
+
+        if (_glassLive != null)
+            return _glassLive;
+        if (catalogo != null && catalogo.TryGetValue("glass", out var glass) && glass != null)
+            _glassLive = glass;
+        else if (actual != null)
+            _glassLive = actual;
+        else
+        {
+            var shader = ShaderVidrio();
+            if (shader != null)
+                _glassLive = new Material(shader) { name = "glass" };
+        }
+        if (_glassLive != null)
+            PintarVidrio(_glassLive);
+        return _glassLive;
+    }
+
+    static Shader ShaderVidrio()
+    {
+        return Shader.Find("Legacy Shaders/Transparent/Diffuse")
+            ?? Shader.Find("Transparent/Diffuse")
+            ?? Shader.Find("Standard");
+    }
+
+    static bool PintarVidrio(Material material)
+    {
+        if (material == null)
+            return false;
+
+        var anterior = material.shader;
+        var colorAntes = material.HasProperty("_Color") ? material.color : Color.clear;
+        var shader = ShaderVidrio();
+        if (shader != null)
+            material.shader = shader;
+
+        if (material.HasProperty("_MainTex"))
+            material.mainTexture = null;
+        if (material.HasProperty("_Color"))
+            material.color = ColorVidrio;
+
+        if (material.HasProperty("_Mode"))
+        {
+            material.SetFloat("_Mode", 2f);
+            material.SetInt("_SrcBlend", 5);
+            material.SetInt("_DstBlend", 10);
+            material.SetInt("_ZWrite", 0);
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.EnableKeyword("_ALPHABLEND_ON");
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.renderQueue = 3000;
+        }
+        if (material.HasProperty("_Metallic"))
+            material.SetFloat("_Metallic", 0.04f);
+        if (material.HasProperty("_Glossiness"))
+            material.SetFloat("_Glossiness", 0.84f);
+        if (material.HasProperty("_Smoothness"))
+            material.SetFloat("_Smoothness", 0.84f);
+
+        return material.shader != anterior
+            || (material.HasProperty("_Color") && material.color != colorAntes);
+    }
+
+    static bool PintarChimenea(Material material)
+    {
+        if (material == null)
+            return false;
+
+        var shader = ShaderTuberia();
+        if (shader != null && (material.shader == null
+            || material.shader.name.Contains("InternalError")
+            || material.shader.name.IndexOf("Standard", StringComparison.OrdinalIgnoreCase) < 0))
+            material.shader = shader;
+
+        var texAntes = material.HasProperty("_MainTex") ? material.mainTexture : null;
+        var colorAntes = material.HasProperty("_Color") ? material.color : Color.white;
+        var tex = TexturaGalvanizado();
+        if (tex != null && material.HasProperty("_MainTex"))
+        {
+            tex.wrapMode = TextureWrapMode.Repeat;
+            material.mainTexture = tex;
+            material.mainTextureScale = new Vector2(1.8f, 3.2f);
+        }
+
+        if (material.HasProperty("_Color"))
+            material.color = ColorChimenea;
+        if (material.HasProperty("_Metallic"))
+            material.SetFloat("_Metallic", MetalicoChim);
+        if (material.HasProperty("_Glossiness"))
+            material.SetFloat("_Glossiness", BrilloChim);
+        if (material.HasProperty("_Smoothness"))
+            material.SetFloat("_Smoothness", BrilloChim);
+        if (material.HasProperty("_EmissionColor"))
+        {
+            material.DisableKeyword("_EMISSION");
+            material.SetColor("_EmissionColor", Color.black);
+        }
+
+        return (material.HasProperty("_MainTex") && material.mainTexture != texAntes)
+            || (material.HasProperty("_Color") && material.color != colorAntes);
+    }
+
+    static bool PareceChimenea(Renderer renderer)
+    {
+        if (renderer == null || !EnFabrica(renderer))
+            return false;
+
+        var nombre = renderer.gameObject.name;
+        if (EsVidrio(nombre) || Contiene(nombre, "wall") || Contiene(nombre, "ground")
+            || Contiene(nombre, "pipe") || Contiene(nombre, "fence") || Contiene(nombre, "logo"))
+            return false;
+        if (EsNombreTorre(nombre) || Contiene(nombre, "Cylinder") || Contiene(nombre, "silo"))
+            return true;
+
+        var b = renderer.bounds.size;
+        float y = b.y;
+        float xz = Mathf.Max(b.x, b.z);
+        float minxz = Mathf.Min(b.x, b.z);
+        if (y < 4.5f || xz < 0.4f)
+            return false;
+        return y > xz * 1.55f && minxz > xz * 0.45f;
+    }
+
+    static Texture TexturaGalvanizado()
+    {
+        if (_texGalv != null)
+            return _texGalv;
+
+        _texGalv = CargarTex("Textures/corrugated_galvanized",
+            "Assets/Art/Textures/corrugated_galvanized.png",
+            "Assets/Resources/Textures/corrugated_galvanized.png");
+        return _texGalv;
     }
 
     static Texture TexturaMetal()
@@ -783,12 +1077,12 @@ public static class ReconectarMateriales
             || material.shader.name.IndexOf("Standard", StringComparison.OrdinalIgnoreCase) < 0))
             material.shader = shader;
 
-        var tex = TexturaOxido();
+        var tex = TexturaMetal();
         if (tex != null && material.HasProperty("_MainTex"))
         {
             tex.wrapMode = TextureWrapMode.Repeat;
             material.mainTexture = tex;
-            material.mainTextureScale = new Vector2(6f, 3f);
+            material.mainTextureScale = new Vector2(5f, 2.5f);
         }
 
         if (material.HasProperty("_Color"))
@@ -801,15 +1095,16 @@ public static class ReconectarMateriales
             material.SetFloat("_Smoothness", BrilloPipe);
         if (material.HasProperty("_EmissionColor"))
         {
-            material.EnableKeyword("_EMISSION");
-            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-            material.SetColor("_EmissionColor", EmisionPipe);
+            material.DisableKeyword("_EMISSION");
+            material.SetColor("_EmissionColor", Color.black);
         }
     }
 
     static bool AsegurarTexturaTuberia(Material material, Renderer renderer)
     {
-        if (material == null || (!EsTuberia(material, renderer) && !PareceRielOscuro(material, renderer)))
+        if (material == null || EsVidrioNombrado(material, renderer) || EsTorre(material, renderer))
+            return false;
+        if (!EsTuberia(material, renderer) && !EsCerca(material, renderer) && !PareceRielOscuro(material, renderer))
             return false;
 
         var color = EsPipe2(material, renderer) ? ColorPipe2 : ColorPipe1;
@@ -966,24 +1261,18 @@ public static class ReconectarMateriales
             return true;
         }
 
-        if (rol == RolTextura.BasePared || rol == RolTextura.Chapa)
+        if (rol == RolTextura.Torre)
         {
-            if (material.HasProperty("_Metallic"))
-                material.SetFloat("_Metallic", 0.42f);
-            if (material.HasProperty("_Glossiness"))
-                material.SetFloat("_Glossiness", 0.30f);
-            if (material.HasProperty("_Smoothness"))
-                material.SetFloat("_Smoothness", 0.30f);
+            PintarChimenea(material);
+            return true;
         }
-        else
-        {
-            if (material.HasProperty("_Metallic"))
-                material.SetFloat("_Metallic", 0f);
-            if (material.HasProperty("_Glossiness"))
-                material.SetFloat("_Glossiness", 0.18f);
-            if (material.HasProperty("_Smoothness"))
-                material.SetFloat("_Smoothness", 0.18f);
-        }
+
+        if (material.HasProperty("_Metallic"))
+            material.SetFloat("_Metallic", 0f);
+        if (material.HasProperty("_Glossiness"))
+            material.SetFloat("_Glossiness", 0.18f);
+        if (material.HasProperty("_Smoothness"))
+            material.SetFloat("_Smoothness", 0.18f);
 
         return anterior != tex
             || scaleAntes != material.mainTextureScale
@@ -995,10 +1284,9 @@ public static class ReconectarMateriales
         Ninguno,
         Piso,
         Pared,
-        BasePared,
         Madera,
         Metal,
-        Chapa
+        Torre
     }
 
     static bool EsVidrio(string nombre)
@@ -1006,21 +1294,57 @@ public static class ReconectarMateriales
         return Contiene(nombre, "glass") || Contiene(nombre, "window");
     }
 
+    static bool EsVidrioNombrado(Material material, Renderer renderer)
+    {
+        if (EsVidrio(NombreMaterial(material)))
+            return true;
+        return renderer != null && (NombreEnJerarquia(renderer.transform, "glass")
+            || NombreEnJerarquia(renderer.transform, "window"));
+    }
+
+    static bool EsCerca(Material material, Renderer renderer)
+    {
+        if (Contiene(NombreMaterial(material), "fence"))
+            return true;
+        return renderer != null && NombreEnJerarquia(renderer.transform, "fence");
+    }
+
+    static bool EsNombreTorre(string nombre)
+    {
+        return Contiene(nombre, "chim")
+            || Contiene(nombre, "tower")
+            || Contiene(nombre, "silo")
+            || Contiene(nombre, "chimney");
+    }
+
+    static bool EsTorre(Material material, Renderer renderer)
+    {
+        if (EsNombreTorre(NombreMaterial(material)))
+            return true;
+        if (Contiene(NombreMaterial(material), "roof"))
+            return true;
+        if (renderer != null && (NombreEnJerarquia(renderer.transform, "chim")
+            || NombreEnJerarquia(renderer.transform, "tower")
+            || NombreEnJerarquia(renderer.transform, "silo")
+            || NombreEnJerarquia(renderer.transform, "roof")))
+            return true;
+        return PareceChimenea(renderer);
+    }
+
     static RolTextura RolAlbedo(Material material, Renderer renderer)
     {
         var nombre = NombreMaterial(material);
         var nodo = renderer != null ? renderer.gameObject.name : null;
 
-        if (EsNombreTuberia(nombre) || Contiene(nodo, "pipe") || PareceTuboPorMalla(renderer))
+        if (EsVidrio(nombre) || EsVidrio(nodo))
+            return RolTextura.Ninguno;
+        if (EsNombreTuberia(nombre) || Contiene(nodo, "pipe") || EsCerca(material, renderer) || PareceTuboPorMalla(renderer))
             return RolTextura.Metal;
-        if (Contiene(nodo, "fence") || Contiene(nodo, "chim")
-            || Contiene(nombre, "fence") || Contiene(nombre, "chim") || Contiene(nombre, "metal"))
-            return RolTextura.Chapa;
+        if (EsTorre(material, renderer) || Contiene(nombre, "roof"))
+            return RolTextura.Torre;
 
         if (Contiene(nombre, "madera") || Contiene(nombre, "wood") || Contiene(nombre, "Puerta"))
             return RolTextura.Madera;
-        if (Contiene(nombre, "wallbase") || Contiene(nombre, "walltop") || Contiene(nombre, "roof"))
-            return RolTextura.BasePared;
         if (Contiene(nombre, "wall") || Contiene(nombre, "15_verti") || Contiene(nombre, "7cd"))
             return RolTextura.Pared;
         if (Contiene(nombre, "ground") || Contiene(nombre, "piso") || Contiene(nombre, "floor"))
@@ -1049,15 +1373,13 @@ public static class ReconectarMateriales
             case RolTextura.Piso:
                 return TexAdoquin() ?? TexHexagon() ?? TexConcrete();
             case RolTextura.Pared:
-                return TexConcrete() ?? TexHexagon() ?? TexturaMetal();
-            case RolTextura.BasePared:
-                return TexturaMetal() ?? TexConcrete();
+                return TexConcrete() ?? TexHexagon();
             case RolTextura.Madera:
                 return TexMadera() ?? TexConcrete();
             case RolTextura.Metal:
-                return TexturaOxido() ?? TexturaMetal();
-            case RolTextura.Chapa:
-                return TexturaMetal() ?? TexConcrete();
+                return TexturaMetal();
+            case RolTextura.Torre:
+                return TexturaGalvanizado();
             default:
                 return null;
         }
@@ -1073,14 +1395,12 @@ public static class ReconectarMateriales
                 return Vector2.one * Mathf.Clamp(span * 0.35f, 8f, 18f);
             case RolTextura.Pared:
                 return Vector2.one * Mathf.Clamp(span * 0.55f, 14f, 24f);
-            case RolTextura.BasePared:
-                return Vector2.one * Mathf.Clamp(span * 0.42f, 10f, 18f);
             case RolTextura.Madera:
                 return new Vector2(2.5f, 2.5f);
             case RolTextura.Metal:
-                return new Vector2(6f, 3f);
-            case RolTextura.Chapa:
-                return new Vector2(4.5f, 2f);
+                return new Vector2(5f, 2.5f);
+            case RolTextura.Torre:
+                return new Vector2(1.8f, 3.2f);
             default:
                 return Vector2.one;
         }
@@ -1093,13 +1413,11 @@ public static class ReconectarMateriales
             case RolTextura.Piso:
                 return Color.white;
             case RolTextura.Pared:
-                return new Color(0.82f, 0.84f, 0.86f);
-            case RolTextura.BasePared:
-                return new Color(0.78f, 0.80f, 0.83f);
+                return new Color(0.86f, 0.84f, 0.80f);
             case RolTextura.Madera:
                 return Color.white;
-            case RolTextura.Chapa:
-                return new Color(0.85f, 0.85f, 0.86f);
+            case RolTextura.Torre:
+                return ColorChimenea;
             default:
                 return actual.maxColorComponent < 0.35f ? Color.white : actual;
         }
@@ -1110,7 +1428,11 @@ public static class ReconectarMateriales
         if (renderer == null || !EnFabrica(renderer))
             return false;
         if (EsVidrio(renderer.gameObject.name) || Contiene(renderer.gameObject.name, "wall")
-            || Contiene(renderer.gameObject.name, "ground") || Contiene(renderer.gameObject.name, "logo"))
+            || Contiene(renderer.gameObject.name, "ground") || Contiene(renderer.gameObject.name, "logo")
+            || EsNombreTorre(renderer.gameObject.name) || Contiene(renderer.gameObject.name, "roof")
+            || Contiene(renderer.gameObject.name, "fence"))
+            return false;
+        if (PareceChimenea(renderer))
             return false;
 
         var b = renderer.bounds.size;
