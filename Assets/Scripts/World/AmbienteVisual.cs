@@ -24,7 +24,9 @@ public static class AmbienteVisual
         RenderSettings.ambientEquatorColor = new Color(0.42f, 0.43f, 0.45f);
         RenderSettings.ambientGroundColor = new Color(0.22f, 0.20f, 0.18f);
         RenderSettings.ambientIntensity = 1.15f;
+        RenderSettings.defaultReflectionMode = DefaultReflectionMode.Skybox;
         RenderSettings.reflectionIntensity = 1f;
+        QualitySettings.realtimeReflectionProbes = true;
         DynamicGI.UpdateEnvironment();
 
         var luces = Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude);
@@ -260,5 +262,73 @@ public static class AmbienteVisual
             material.mainTexture = tex;
         if (material.HasProperty("_Color"))
             material.color = color;
+    }
+
+    public static void AsegurarSondaReflexion(GameObject fabrica)
+    {
+        QualitySettings.realtimeReflectionProbes = true;
+
+        var host = GameObject.Find("SondaReflexionFabrica");
+        if (host == null)
+            host = new GameObject("SondaReflexionFabrica");
+
+        var bounds = BoundsParaSonda(fabrica);
+        host.transform.position = bounds.center;
+
+        if (!host.TryGetComponent(out ReflectionProbe probe))
+            probe = host.AddComponent<ReflectionProbe>();
+
+        probe.enabled = true;
+        probe.mode = ReflectionProbeMode.Realtime;
+        probe.refreshMode = ReflectionProbeRefreshMode.EveryFrame;
+        probe.timeSlicingMode = ReflectionProbeTimeSlicingMode.NoTimeSlicing;
+        probe.boxProjection = true;
+        probe.intensity = 1.05f;
+        probe.importance = 10;
+        probe.resolution = 128;
+        probe.hdr = true;
+        probe.nearClipPlane = 0.3f;
+        probe.farClipPlane = Mathf.Max(70f, bounds.extents.magnitude * 2.2f);
+        probe.shadowDistance = 42f;
+        probe.clearFlags = ReflectionProbeClearFlags.Skybox;
+        probe.cullingMask = ~0;
+        probe.size = bounds.size;
+        probe.center = Vector3.zero;
+        probe.blendDistance = 10f;
+        probe.RenderProbe();
+    }
+
+    static Bounds BoundsParaSonda(GameObject fabrica)
+    {
+        Bounds? acc = null;
+        if (fabrica != null)
+        {
+            foreach (var r in fabrica.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r == null || r is ParticleSystemRenderer)
+                    continue;
+                if (!acc.HasValue)
+                    acc = r.bounds;
+                else
+                {
+                    var t = acc.Value;
+                    t.Encapsulate(r.bounds);
+                    acc = t;
+                }
+            }
+        }
+
+        var bounds = acc ?? new Bounds(new Vector3(0f, 10f, 0f), new Vector3(56f, 28f, 56f));
+        bounds.Expand(26f);
+        if (bounds.size.y < 32f)
+        {
+            var c = bounds.center;
+            c.y = Mathf.Max(c.y, 12f);
+            bounds.center = c;
+            var s = bounds.size;
+            s.y = 36f;
+            bounds.size = s;
+        }
+        return bounds;
     }
 }

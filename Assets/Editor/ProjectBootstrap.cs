@@ -56,7 +56,7 @@ public static class ProjectBootstrap
     static readonly (string name, Color color)[] MikeMaterials =
     {
         ("Piel", new Color(0.50f, 0.78f, 0.15f)),
-        ("Lengua", new Color(0.75f, 0.22f, 0.28f)),
+        ("Lengua", new Color(0.86f, 0.12f, 0.20f)),
         ("Ojo", new Color(0.80f, 0.80f, 0.80f)),
         ("Paladar", new Color(0.65f, 0.20f, 0.22f)),
         ("Unias", new Color(0.85f, 0.82f, 0.70f)),
@@ -347,9 +347,9 @@ public static class ProjectBootstrap
     static void EnsureGlassMaterials()
     {
         var cyan = new Color(0.38f, 0.78f, 0.88f, 0.38f);
-        var shader = Shader.Find("Legacy Shaders/Transparent/Diffuse")
-            ?? Shader.Find("Transparent/Diffuse")
-            ?? Shader.Find("Standard");
+        var shader = Shader.Find("Standard")
+            ?? Shader.Find("Legacy Shaders/Transparent/Diffuse")
+            ?? Shader.Find("Transparent/Diffuse");
 
         foreach (var name in new[] { "glass", "window" })
         {
@@ -374,20 +374,35 @@ public static class ProjectBootstrap
                 mat.color = cyan;
                 dirty = true;
             }
+
+            mat.SetOverrideTag("RenderType", "Transparent");
             if (mat.HasProperty("_Mode"))
+                mat.SetFloat("_Mode", 3f);
+            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetInt("_ZWrite", 0);
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.DisableKeyword("_ALPHABLEND_ON");
+            mat.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+            if (mat.renderQueue != 3000)
             {
-                mat.SetFloat("_Mode", 2f);
-                mat.SetInt("_SrcBlend", 5);
-                mat.SetInt("_DstBlend", 10);
-                mat.SetInt("_ZWrite", 0);
-                mat.DisableKeyword("_ALPHATEST_ON");
-                mat.EnableKeyword("_ALPHABLEND_ON");
-                mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                if (mat.renderQueue != 3000)
-                {
-                    mat.renderQueue = 3000;
-                    dirty = true;
-                }
+                mat.renderQueue = 3000;
+                dirty = true;
+            }
+            if (mat.HasProperty("_Metallic") && !Mathf.Approximately(mat.GetFloat("_Metallic"), 0f))
+            {
+                mat.SetFloat("_Metallic", 0f);
+                dirty = true;
+            }
+            if (mat.HasProperty("_Glossiness") && !Mathf.Approximately(mat.GetFloat("_Glossiness"), 0.94f))
+            {
+                mat.SetFloat("_Glossiness", 0.94f);
+                dirty = true;
+            }
+            if (mat.HasProperty("_Smoothness") && !Mathf.Approximately(mat.GetFloat("_Smoothness"), 0.94f))
+            {
+                mat.SetFloat("_Smoothness", 0.94f);
+                dirty = true;
             }
             if (dirty)
                 EditorUtility.SetDirty(mat);

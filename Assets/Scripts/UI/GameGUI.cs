@@ -43,6 +43,7 @@ public class GameGUI : MonoBehaviour
     Image _veloFinal;
     Image _panelMensaje;
     Text _mensaje;
+    Text _textoHasGanado;
     Text _timer;
     Canvas _hud;
     string _textoMensaje;
@@ -281,6 +282,11 @@ public class GameGUI : MonoBehaviour
             _imgGanaste.enabled = gano;
         if (_imgPerdiste != null)
             _imgPerdiste.enabled = perdio;
+        if (_textoHasGanado != null)
+        {
+            _textoHasGanado.enabled = gano;
+            _textoHasGanado.gameObject.SetActive(gano);
+        }
         if (_veloFinal != null)
             _veloFinal.enabled = false;
     }
@@ -345,6 +351,16 @@ public class GameGUI : MonoBehaviour
 
         _imgGanaste = BannerEsquina(canvas, "Ganaste", "UI/ganaste");
         _imgPerdiste = BannerEsquina(canvas, "Perdiste", "UI/perdiste");
+
+        _textoHasGanado = UiFactory.AddText(canvas, "HasGanado", "Has ganado", 72, TextAnchor.MiddleCenter, UiFactory.Oro, true, FontStyle.Bold);
+        _textoHasGanado.rectTransform.anchorMin = new Vector2(0.5f, 0.62f);
+        _textoHasGanado.rectTransform.anchorMax = new Vector2(0.5f, 0.62f);
+        _textoHasGanado.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        _textoHasGanado.rectTransform.anchoredPosition = Vector2.zero;
+        _textoHasGanado.rectTransform.sizeDelta = new Vector2(980f, 130f);
+        _textoHasGanado.horizontalOverflow = HorizontalWrapMode.Overflow;
+        _textoHasGanado.enabled = false;
+        _textoHasGanado.gameObject.SetActive(false);
     }
 
     static Image BannerEsquina(Transform parent, string name, string resource)

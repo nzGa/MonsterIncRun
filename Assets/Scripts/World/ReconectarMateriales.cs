@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public static class ReconectarMateriales
 {
@@ -117,7 +118,7 @@ public static class ReconectarMateriales
         var piel = AsegurarPiel(
             BuscarMike(mats, "Piel") ?? Resources.Load<Material>("Models/Mike/Materials/Piel"),
             paladar, lengua, ojo);
-        AsegurarMaterialBoca(lengua, new Color(0.75f, 0.22f, 0.28f), piel, ojo);
+        AsegurarMaterialBoca(lengua, new Color(0.86f, 0.12f, 0.20f), piel, ojo);
         AsegurarMaterialBoca(paladar, new Color(0.65f, 0.20f, 0.22f), piel, ojo);
         AsegurarMaterialBoca(dientes, Color.white, piel, ojo);
         AsegurarMaterialBoca(unias, Color.white, piel, ojo);
@@ -163,6 +164,8 @@ public static class ReconectarMateriales
             if (ForzarPielEnCuerpo(siguiente, renderer, piel, discoOjo))
                 changed = true;
             if (ForzarOjoEnDisco(siguiente, renderer, ojo))
+                changed = true;
+            if (ForzarLenguaEnSlot(siguiente, lengua))
                 changed = true;
 
             if (changed)
@@ -245,6 +248,8 @@ public static class ReconectarMateriales
             disco = IndicePaladarGrande(slots, renderer);
         if (disco < 0 || disco >= slots.Length)
             return false;
+        if (EsSlotLengua(disco, slots.Length, slots[disco], renderer != null ? renderer.gameObject.name : null))
+            return false;
         int mayor = IndiceSubmeshMayor(renderer);
         if (disco == mayor)
             return false;
@@ -253,6 +258,38 @@ public static class ReconectarMateriales
 
         slots[disco] = ojo;
         return true;
+    }
+
+    static bool ForzarLenguaEnSlot(Material[] slots, Material lengua)
+    {
+        if (slots == null || lengua == null)
+            return false;
+
+        bool changed = false;
+        if (slots.Length >= 6 && slots[2] != lengua)
+        {
+            slots[2] = lengua;
+            changed = true;
+        }
+
+        for (int i = 0; i < slots.Length; i++)
+        {
+            if (!EsLengua(NombreMaterial(slots[i])))
+                continue;
+            if (slots[i] == lengua)
+                continue;
+            slots[i] = lengua;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    static bool EsSlotLengua(int slot, int slots, Material actual, string rendererName)
+    {
+        if (slots >= 6 && slot == 2)
+            return true;
+        return EsLengua(NombreMaterial(actual)) || EsLengua(rendererName);
     }
 
     static int IndicePaladarGrande(Material[] slots, Renderer renderer)
@@ -316,7 +353,7 @@ public static class ReconectarMateriales
             ? renderer.sharedMaterials.Length
             : 1;
 
-        if (discoOjo >= 0 && slot == discoOjo)
+        if (discoOjo >= 0 && slot == discoOjo && !EsSlotLengua(slot, slots, actual, rendererName))
             return ojo ?? piel;
 
         if (EsNombreOjo(rendererName) && slots <= 1)
@@ -522,6 +559,8 @@ public static class ReconectarMateriales
             return;
 
         AmbienteVisual.RepararShader(mat);
+        if ((EsLengua(mat.name) || EsPaladar(mat.name)) && mat.HasProperty("_MainTex"))
+            mat.mainTexture = null;
         if (mat.HasProperty("_Color"))
         {
             if (EsLengua(mat.name) || EsPaladar(mat.name))
@@ -761,6 +800,7 @@ public static class ReconectarMateriales
                 {
                     PintarVidrio(unico);
                     renderer.sharedMaterial = unico;
+                    renderer.reflectionProbeUsage = ReflectionProbeUsage.BlendProbes;
                 }
                 continue;
             }
@@ -780,6 +820,7 @@ public static class ReconectarMateriales
                 if (PintarVidrio(siguiente[i]))
                     changed = true;
             }
+            renderer.reflectionProbeUsage = ReflectionProbeUsage.BlendProbes;
             if (changed)
                 renderer.sharedMaterials = siguiente;
         }
@@ -913,9 +954,9 @@ public static class ReconectarMateriales
 
     static Shader ShaderVidrio()
     {
-        return Shader.Find("Legacy Shaders/Transparent/Diffuse")
-            ?? Shader.Find("Transparent/Diffuse")
-            ?? Shader.Find("Standard");
+        return Shader.Find("Standard")
+            ?? Shader.Find("Legacy Shaders/Transparent/Diffuse")
+            ?? Shader.Find("Transparent/Diffuse");
     }
 
     static bool PintarVidrio(Material material)
@@ -925,6 +966,8 @@ public static class ReconectarMateriales
 
         var anterior = material.shader;
         var colorAntes = material.HasProperty("_Color") ? material.color : Color.clear;
+        float metalAntes = material.HasProperty("_Metallic") ? material.GetFloat("_Metallic") : -1f;
+        float brilloAntes = material.HasProperty("_Glossiness") ? material.GetFloat("_Glossiness") : -1f;
         var shader = ShaderVidrio();
         if (shader != null)
             material.shader = shader;
@@ -934,26 +977,33 @@ public static class ReconectarMateriales
         if (material.HasProperty("_Color"))
             material.color = ColorVidrio;
 
+        // Standard Transparent: glass that samples realtime reflection probes.
+        material.SetOverrideTag("RenderType", "Transparent");
         if (material.HasProperty("_Mode"))
-        {
-            material.SetFloat("_Mode", 2f);
-            material.SetInt("_SrcBlend", 5);
-            material.SetInt("_DstBlend", 10);
-            material.SetInt("_ZWrite", 0);
-            material.DisableKeyword("_ALPHATEST_ON");
-            material.EnableKeyword("_ALPHABLEND_ON");
-            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            material.renderQueue = 3000;
-        }
+            material.SetFloat("_Mode", 3f);
+        material.SetInt("_SrcBlend", (int)BlendMode.One);
+        material.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+        material.SetInt("_ZWrite", 0);
+        material.DisableKeyword("_ALPHATEST_ON");
+        material.DisableKeyword("_ALPHABLEND_ON");
+        material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+        material.renderQueue = 3000;
+
         if (material.HasProperty("_Metallic"))
-            material.SetFloat("_Metallic", 0.04f);
+            material.SetFloat("_Metallic", 0f);
         if (material.HasProperty("_Glossiness"))
-            material.SetFloat("_Glossiness", 0.84f);
+            material.SetFloat("_Glossiness", 0.94f);
         if (material.HasProperty("_Smoothness"))
-            material.SetFloat("_Smoothness", 0.84f);
+            material.SetFloat("_Smoothness", 0.94f);
+        if (material.HasProperty("_GlossyReflections"))
+            material.SetFloat("_GlossyReflections", 1f);
+        if (material.HasProperty("_SpecularHighlights"))
+            material.SetFloat("_SpecularHighlights", 1f);
 
         return material.shader != anterior
-            || (material.HasProperty("_Color") && material.color != colorAntes);
+            || (material.HasProperty("_Color") && material.color != colorAntes)
+            || (material.HasProperty("_Metallic") && !Mathf.Approximately(metalAntes, 0f))
+            || (material.HasProperty("_Glossiness") && !Mathf.Approximately(brilloAntes, 0.94f));
     }
 
     static bool PintarChimenea(Material material)
