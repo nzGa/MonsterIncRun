@@ -13,7 +13,7 @@ Shader "MonsterInc/MikePiel"
         LOD 200
 
         CGPROGRAM
-        #pragma surface surf Standard fullforwardshadows
+        #pragma surface surf Lambert fullforwardshadows
         #pragma target 3.0
 
         fixed4 _Color;
@@ -49,14 +49,12 @@ Shader "MonsterInc/MikePiel"
                 f.z);
         }
 
-        void surf(Input IN, inout SurfaceOutputStandard o)
+        void surf(Input IN, inout SurfaceOutput o)
         {
             float3 obj = mul(unity_WorldToObject, float4(IN.worldPos, 1)).xyz;
             float n = IsoNoise(obj * _PoreScale);
-            float pores = saturate((n - 0.55) * 2.2);
-            o.Albedo = _Color.rgb * (1.0 - _PoreAmount * pores);
-            o.Metallic = 0.0;
-            o.Smoothness = 0.36 - 0.08 * n;
+            float pores = saturate((n - 0.55) * 1.6);
+            o.Albedo = _Color.rgb * (0.92 + 0.08 * (1.0 - _PoreAmount * pores));
             o.Alpha = 1.0;
         }
         ENDCG

@@ -347,8 +347,8 @@ public static class ProjectBootstrap
     static void EnsureGlassMaterials()
     {
         var tint = new Color(0.58f, 0.72f, 0.78f, 1f);
-        const float metal = 0.62f;
-        const float brillo = 0.78f;
+        const float metal = 0.88f;
+        const float brillo = 0.95f;
         const int colaGeometria = 2000;
         var shader = Shader.Find("Standard")
             ?? Shader.Find("Legacy Shaders/Diffuse")

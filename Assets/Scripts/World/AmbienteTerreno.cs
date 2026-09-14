@@ -209,14 +209,18 @@ public static class AmbienteTerreno
             diffuseTexture = cesped,
             tileSize = new Vector2(12f, 12f),
             metallic = 0f,
-            smoothness = 0.05f
+            smoothness = 0f,
+            specular = Color.black,
+            diffuseRemapMin = new Vector4(0.06f, 0.08f, 0.04f, 0f),
+            diffuseRemapMax = new Vector4(0.86f, 0.90f, 0.72f, 1f)
         };
         var cliff = new TerrainLayer
         {
             diffuseTexture = acantilado,
             tileSize = new Vector2(18f, 18f),
             metallic = 0f,
-            smoothness = 0.08f
+            smoothness = 0.04f,
+            specular = new Color(0.08f, 0.08f, 0.08f, 1f)
         };
         data.terrainLayers = new[] { grass, cliff };
     }
