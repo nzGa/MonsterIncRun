@@ -86,6 +86,7 @@ public class SpawnObjetos : MonoBehaviour
 
         ReconectarMateriales.En(instance);
         AsegurarColisionFabrica(instance);
+        AmbienteVisual.AsegurarSondaReflexion(instance);
     }
 
     static void AsegurarColisionFabrica(GameObject fabrica)
@@ -538,16 +539,28 @@ public class SpawnObjetos : MonoBehaviour
 
     static void AsegurarTrigger(GameObject go)
     {
+        bool puerta = go.CompareTag("Puerta");
         QuitarColliders(go);
+        if (puerta)
+            AsegurarColliderSolidoPuerta(go);
 
         var b = BoundsDe(go);
-        bool puerta = go.CompareTag("Puerta");
-        float padXz = puerta ? 1.4f : 0.5f;
-        float minXz = puerta ? 2.6f : 0.85f;
+        float padXz = puerta ? 0.8f : 0.5f;
+        float minXz = puerta ? 2.4f : 0.85f;
         float minY = puerta ? 3.2f : 0.7f;
         float sx = Mathf.Max(b.size.x + padXz * 2f, minXz);
         float sy = Mathf.Max(b.size.y + 0.5f, minY);
         float sz = Mathf.Max(b.size.z + padXz * 2f, minXz);
+        if (puerta)
+        {
+            // Keep a thick catch volume in front/around the slab so the
+            // CharacterController can win without clipping through wood.
+            const float profundidad = 2.4f;
+            if (b.size.x <= b.size.z)
+                sx = Mathf.Max(b.size.x + profundidad, 2.4f);
+            else
+                sz = Mathf.Max(b.size.z + profundidad, 2.4f);
+        }
 
         var t = go.transform.Find("Trigger");
         GameObject host;
@@ -581,6 +594,38 @@ public class SpawnObjetos : MonoBehaviour
             sy / Mathf.Max(Mathf.Abs(ls.y), 1e-4f),
             sz / Mathf.Max(Mathf.Abs(ls.z), 1e-4f));
         box.isTrigger = true;
+    }
+
+    static void AsegurarColliderSolidoPuerta(GameObject go)
+    {
+        bool hayMalla = false;
+        foreach (var filter in go.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (filter == null || filter.sharedMesh == null)
+                continue;
+            if (filter.gameObject.name == "Trigger")
+                continue;
+
+            var col = filter.gameObject.AddComponent<MeshCollider>();
+            col.sharedMesh = filter.sharedMesh;
+            col.convex = false;
+            col.isTrigger = false;
+            hayMalla = true;
+        }
+
+        if (hayMalla)
+            return;
+
+        var b = BoundsDe(go);
+        if (!go.TryGetComponent(out BoxCollider caja))
+            caja = go.AddComponent<BoxCollider>();
+        var ls = go.transform.lossyScale;
+        caja.center = go.transform.InverseTransformPoint(b.center);
+        caja.size = new Vector3(
+            b.size.x / Mathf.Max(Mathf.Abs(ls.x), 1e-4f),
+            b.size.y / Mathf.Max(Mathf.Abs(ls.y), 1e-4f),
+            b.size.z / Mathf.Max(Mathf.Abs(ls.z), 1e-4f));
+        caja.isTrigger = false;
     }
 
     static void QuitarColliders(GameObject go)
