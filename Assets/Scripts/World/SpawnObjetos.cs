@@ -249,7 +249,7 @@ public class SpawnObjetos : MonoBehaviour
         {
             anim.enabled = false;
             anim.runtimeAnimatorController = null;
-            Object.Destroy(anim);
+            UnityEngine.Object.Destroy(anim);
         }
     }
 
@@ -351,7 +351,7 @@ public class SpawnObjetos : MonoBehaviour
             var rend = dummy.GetComponent<Renderer>();
             if (rend != null)
                 rend.material.color = color;
-            Object.Destroy(dummy.GetComponent<Collider>());
+            UnityEngine.Object.Destroy(dummy.GetComponent<Collider>());
             b = BoundsDe(go);
         }
 
