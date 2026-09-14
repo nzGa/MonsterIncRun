@@ -19,9 +19,20 @@ public static class AmbienteVisual
 
         RepararShader(sky, Shader.Find("Skybox/6 Sided") ?? Shader.Find("Skybox/Cubemap"));
         RenderSettings.skybox = sky;
-        RenderSettings.ambientMode = AmbientMode.Skybox;
-        RenderSettings.ambientIntensity = 1f;
+        RenderSettings.ambientMode = AmbientMode.Trilight;
+        RenderSettings.ambientSkyColor = new Color(0.62f, 0.66f, 0.72f);
+        RenderSettings.ambientEquatorColor = new Color(0.42f, 0.43f, 0.45f);
+        RenderSettings.ambientGroundColor = new Color(0.22f, 0.20f, 0.18f);
+        RenderSettings.ambientIntensity = 1.15f;
+        RenderSettings.reflectionIntensity = 1f;
         DynamicGI.UpdateEnvironment();
+
+        var luces = Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude);
+        for (int i = 0; i < luces.Length; i++)
+        {
+            if (luces[i] != null && luces[i].type == LightType.Directional && luces[i].intensity < 1.25f)
+                luces[i].intensity = 1.25f;
+        }
     }
 
     public static void AplicarSuelo(GameObject suelo)

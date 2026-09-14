@@ -151,7 +151,10 @@ public class FactoryModelImport : AssetPostprocessor
         if (!esPipe && !esMetal)
             return;
 
-        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/metal.jpg");
+        var rust = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Resources/Textures/pipe_rust.png")
+            ?? AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/pipe_rust.png");
+        var metalTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/metal.jpg");
+        var tex = esPipe ? (rust ?? metalTex) : metalTex;
         var std = Shader.Find("Standard");
         if (esPipe && std != null)
             mat.shader = std;
@@ -160,28 +163,28 @@ public class FactoryModelImport : AssetPostprocessor
         {
             mat.mainTexture = tex;
             if (esPipe)
-                mat.mainTextureScale = new Vector2(4.5f, 2f);
+                mat.mainTextureScale = new Vector2(6f, 3f);
         }
 
         if (esPipe && mat.HasProperty("_Color"))
             mat.color = nombre.IndexOf("pipe2", StringComparison.OrdinalIgnoreCase) >= 0
-                ? new Color(0.88f, 0.90f, 0.93f)
-                : new Color(0.92f, 0.91f, 0.88f);
+                ? new Color(0.96f, 0.97f, 1f)
+                : Color.white;
 
         if (esPipe && mat.HasProperty("_Metallic"))
-            mat.SetFloat("_Metallic", 0.82f);
+            mat.SetFloat("_Metallic", 0.74f);
 
         if (esPipe && mat.HasProperty("_Glossiness"))
-            mat.SetFloat("_Glossiness", 0.58f);
+            mat.SetFloat("_Glossiness", 0.38f);
 
         if (esPipe && mat.HasProperty("_Smoothness"))
-            mat.SetFloat("_Smoothness", 0.58f);
+            mat.SetFloat("_Smoothness", 0.38f);
 
         if (esPipe && mat.HasProperty("_EmissionColor"))
         {
             mat.EnableKeyword("_EMISSION");
             mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-            mat.SetColor("_EmissionColor", new Color(0.035f, 0.035f, 0.04f));
+            mat.SetColor("_EmissionColor", new Color(0.16f, 0.13f, 0.10f));
         }
 
         EditorUtility.SetDirty(mat);

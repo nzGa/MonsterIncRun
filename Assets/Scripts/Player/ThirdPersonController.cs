@@ -18,6 +18,8 @@ public class ThirdPersonController : MonoBehaviour
     public float walkSpeed = 2f;
     public float trotSpeed = 4f;
     public float runSpeed = 6f;
+    const float WalkSpeedUnity4 = 2f;
+    const float RunSpeedUnity4 = 6f;
     public float inAirControlAcceleration = 3f;
     public float jumpHeight = 1.3f;
     public float gravity = 20f;
@@ -57,6 +59,7 @@ public class ThirdPersonController : MonoBehaviour
     float lastGroundedTime;
     bool isControllable = true;
     bool _anuncioFinal;
+    Vector3 _wishPlanar;
 
     void Awake()
     {
@@ -65,6 +68,8 @@ public class ThirdPersonController : MonoBehaviour
         if (_animation == null)
             _animation = GetComponentInChildren<Animation>();
         AsignarClipsSiFaltan();
+        walkSpeed = WalkSpeedUnity4;
+        runSpeed = RunSpeedUnity4;
     }
 
     public void RecargarClips()
@@ -128,16 +133,23 @@ public class ThirdPersonController : MonoBehaviour
 
     void UpdateSmoothedMovementDirection()
     {
-        if (Camera.main == null)
-            return;
-
-        Transform cameraTransform = Camera.main.transform;
+        Transform cameraTransform = Camera.main != null ? Camera.main.transform : transform;
         bool grounded = IsGrounded();
 
-        Vector3 forward = cameraTransform.TransformDirection(Vector3.forward);
-        forward.y = 0;
-        forward = forward.normalized;
-        Vector3 right = new Vector3(forward.z, 0, -forward.x);
+        Vector3 forward = cameraTransform.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.0001f)
+            forward = Vector3.ProjectOnPlane(cameraTransform.up, Vector3.up);
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.0001f)
+            forward = Vector3.forward;
+        forward.Normalize();
+
+        Vector3 right = cameraTransform.right;
+        right.y = 0f;
+        if (right.sqrMagnitude < 0.0001f)
+            right = new Vector3(forward.z, 0f, -forward.x);
+        right.Normalize();
 
         float v = Input.GetAxisRaw("Vertical");
         float h = Input.GetAxisRaw("Horizontal");
@@ -145,6 +157,9 @@ public class ThirdPersonController : MonoBehaviour
         bool wasMoving = isMoving;
         isMoving = Mathf.Abs(h) > 0.1f || Mathf.Abs(v) > 0.1f;
         Vector3 targetDirection = h * right + v * forward;
+        if (targetDirection.sqrMagnitude > 1f)
+            targetDirection.Normalize();
+        _wishPlanar = targetDirection;
 
         if (grounded)
         {
@@ -152,25 +167,26 @@ public class ThirdPersonController : MonoBehaviour
             if (isMoving != wasMoving)
                 lockCameraTimer = 0f;
 
-            if (targetDirection != Vector3.zero)
+            if (targetDirection.sqrMagnitude > 0.0001f)
             {
-                if (moveSpeed < walkSpeed * 0.9f && grounded)
-                    moveDirection = targetDirection.normalized;
-                else
-                {
-                    moveDirection = Vector3.RotateTowards(moveDirection, targetDirection, rotateSpeed * Mathf.Deg2Rad * Time.deltaTime, 1000);
-                    moveDirection = moveDirection.normalized;
-                }
+                moveDirection = Vector3.RotateTowards(
+                    moveDirection,
+                    targetDirection.normalized,
+                    rotateSpeed * Mathf.Deg2Rad * Time.deltaTime,
+                    1000f);
+                moveDirection = moveDirection.normalized;
             }
 
             float curSmooth = speedSmoothing * Time.deltaTime;
             float targetSpeed = Mathf.Min(targetDirection.magnitude, 1f);
             _characterState = CharacterState.Idle;
+            bool corriendo = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 
-            if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+            if (corriendo && isMoving)
             {
                 targetSpeed *= runSpeed;
                 _characterState = CharacterState.Running;
+                curSmooth = 1f;
             }
             else if (Time.time - trotAfterSeconds > walkTimeStart)
             {
@@ -248,6 +264,8 @@ public class ThirdPersonController : MonoBehaviour
             runSpeed = 10f;
             runMaxAnimationSpeed = 1.8f;
         }
+        else
+            runSpeed = RunSpeedUnity4;
 
         if (!isControllable)
             Input.ResetInputAxes();
@@ -259,7 +277,10 @@ public class ThirdPersonController : MonoBehaviour
         ApplyGravity();
         ApplyJumping();
 
-        Vector3 movement = moveDirection * moveSpeed + new Vector3(0, verticalSpeed, 0) + inAirVelocity;
+        Vector3 planar = _wishPlanar.sqrMagnitude > 0.0001f
+            ? _wishPlanar.normalized * moveSpeed
+            : Vector3.zero;
+        Vector3 movement = planar + new Vector3(0, verticalSpeed, 0) + inAirVelocity;
         movement *= Time.deltaTime;
 
         var controller = GetComponent<CharacterController>();
@@ -269,7 +290,10 @@ public class ThirdPersonController : MonoBehaviour
         Animar(controller);
 
         if (IsGrounded())
-            transform.rotation = Quaternion.LookRotation(moveDirection);
+        {
+            if (_wishPlanar.sqrMagnitude > 0.0001f)
+                transform.rotation = Quaternion.LookRotation(moveDirection);
+        }
         else
         {
             Vector3 xzMove = movement;
@@ -333,8 +357,7 @@ public class ThirdPersonController : MonoBehaviour
         if (_characterState == CharacterState.Running && runAnimation != null)
         {
             var corre = Estado(runAnimation, "Corre");
-            float rel = runSpeed > 0.05f ? vel / runSpeed : 1f;
-            _animation[corre].speed = Mathf.Clamp(rel * 1.2f, 0.9f, runMaxAnimationSpeed);
+            _animation[corre].speed = runMaxAnimationSpeed;
             _animation.CrossFade(corre);
             return;
         }

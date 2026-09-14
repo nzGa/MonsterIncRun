@@ -102,6 +102,8 @@ public class GameGUI : MonoBehaviour
                 continue;
             if (canvas.name == "TimerCanvas" || canvas.name == "HudCanvas")
                 Destroy(canvas.gameObject);
+            else if (canvas.name == "MonsterHudCanvas" && canvas != _hud)
+                Destroy(canvas.gameObject);
         }
     }
 
@@ -321,49 +323,46 @@ public class GameGUI : MonoBehaviour
 
     void ConstruirHud()
     {
-        var leftover = GameObject.Find("HudCanvas");
+        var         leftover = GameObject.Find("HudCanvas");
         if (leftover != null)
             DestroyImmediate(leftover);
         leftover = GameObject.Find("TimerCanvas");
         if (leftover != null)
             DestroyImmediate(leftover);
+        leftover = GameObject.Find("MonsterHudCanvas");
+        if (leftover != null)
+            DestroyImmediate(leftover);
 
-        _hud = UiFactory.CreateCanvas("HudCanvas", 30);
+        _hud = UiFactory.CreateCanvas("MonsterHudCanvas", 80);
         var canvas = _hud.transform;
 
-        var barra = UiFactory.AddTopBar(canvas, "BarraSuperior", 118f, new Color(0.03f, 0.05f, 0.04f, 0.88f));
+        var barra = UiFactory.AddTopBar(canvas, "BarraSuperior", 96f, new Color(0.02f, 0.03f, 0.03f, 0.82f));
 
-        var chip = UiFactory.AddPanelFixed(barra.transform, "Jugador", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(16f, 0f), new Vector2(260f, 88f), new Color(0.08f, 0.12f, 0.08f, 0.95f));
-        var avatar = UiFactory.AddImageFixed(chip.transform, "Avatar", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(10f, 0f), new Vector2(64f, 64f), Color.white);
+        var chip = UiFactory.AddPanelFixed(canvas, "Jugador", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(18f, -10f), new Vector2(420f, 72f), new Color(0f, 0f, 0f, 0.94f));
+        var avatar = UiFactory.AddImageFixed(chip.transform, "Avatar", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(10f, 0f), new Vector2(56f, 56f), Color.white);
         avatar.preserveAspect = true;
         var texMike = UiFactory.LoadSprite("UI/icono_mike_sullivan");
         if (texMike != null)
             avatar.sprite = texMike;
 
-        _nombreChip = UiFactory.AddText(chip.transform, "NombreChip", "Mike", 32, TextAnchor.MiddleLeft, Color.white, true, FontStyle.Bold);
+        _nombreChip = UiFactory.AddText(chip.transform, "NombreChip", "Mike", 40, TextAnchor.MiddleLeft, new Color(1f, 0.95f, 0.12f, 1f), true, FontStyle.Bold);
         _nombreChip.rectTransform.anchorMin = Vector2.zero;
         _nombreChip.rectTransform.anchorMax = Vector2.one;
-        _nombreChip.rectTransform.offsetMin = new Vector2(82f, 6f);
-        _nombreChip.rectTransform.offsetMax = new Vector2(-8f, -6f);
+        _nombreChip.rectTransform.offsetMin = new Vector2(74f, 4f);
+        _nombreChip.rectTransform.offsetMax = new Vector2(-10f, -4f);
         _nombreChip.horizontalOverflow = HorizontalWrapMode.Overflow;
         _nombreChip.verticalOverflow = VerticalWrapMode.Overflow;
-        _nombreChip.resizeTextForBestFit = true;
-        _nombreChip.resizeTextMinSize = 18;
-        _nombreChip.resizeTextMaxSize = 32;
+        _nombreChip.resizeTextForBestFit = false;
+        UiFactory.AddOutline(_nombreChip, new Color(0f, 0f, 0f, 1f), new Vector2(2.4f, -2.4f));
+        _nombre = _nombreChip;
 
-        var timerPanel = UiFactory.AddPanelFixed(barra.transform, "Timer", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(300f, 92f), new Color(0.08f, 0.12f, 0.08f, 0.95f));
-        _nombre = UiFactory.AddText(timerPanel.transform, "Nombre", "Mike", 20, TextAnchor.UpperCenter, new Color(1f, 1f, 1f, 0.92f), true, FontStyle.Bold);
-        _nombre.rectTransform.anchorMin = new Vector2(0.08f, 0.55f);
-        _nombre.rectTransform.anchorMax = new Vector2(0.92f, 0.96f);
-        _nombre.rectTransform.offsetMin = Vector2.zero;
-        _nombre.rectTransform.offsetMax = Vector2.zero;
-        _nombre.horizontalOverflow = HorizontalWrapMode.Overflow;
+        var timerPanel = UiFactory.AddPanelFixed(barra.transform, "Timer", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(280f, 76f), new Color(0.06f, 0.09f, 0.06f, 0.95f));
 
-        _timer = UiFactory.AddText(timerPanel.transform, "Valor", "15:00", 48, TextAnchor.LowerCenter, Color.white, true, FontStyle.Bold);
-        _timer.rectTransform.anchorMin = new Vector2(0.06f, 0.04f);
-        _timer.rectTransform.anchorMax = new Vector2(0.94f, 0.62f);
-        _timer.rectTransform.offsetMin = Vector2.zero;
-        _timer.rectTransform.offsetMax = Vector2.zero;
+        _timer = UiFactory.AddText(timerPanel.transform, "Valor", "15:00", 44, TextAnchor.MiddleCenter, Color.white, true, FontStyle.Bold);
+        _timer.rectTransform.anchorMin = Vector2.zero;
+        _timer.rectTransform.anchorMax = Vector2.one;
+        _timer.rectTransform.offsetMin = new Vector2(8f, 4f);
+        _timer.rectTransform.offsetMax = new Vector2(-8f, -4f);
         _timer.horizontalOverflow = HorizontalWrapMode.Overflow;
 
         const float slot = 76f;
