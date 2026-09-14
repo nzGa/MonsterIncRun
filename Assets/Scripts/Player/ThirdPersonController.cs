@@ -333,9 +333,8 @@ public class ThirdPersonController : MonoBehaviour
             if (!_anuncioFinal)
             {
                 _anuncioFinal = true;
-                var manager = GameObject.FindGameObjectWithTag("GameManager");
-                if (manager != null)
-                    manager.GetComponent<GestionaMultiJugador>().TerminarJuego();
+                if (GestionaMultiJugador.Instancia != null)
+                    GestionaMultiJugador.Instancia.TerminarJuego();
             }
             return;
         }

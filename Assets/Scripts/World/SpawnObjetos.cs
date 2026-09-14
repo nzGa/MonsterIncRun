@@ -538,21 +538,59 @@ public class SpawnObjetos : MonoBehaviour
 
     static void AsegurarTrigger(GameObject go)
     {
+        QuitarColliders(go);
+
         var b = BoundsDe(go);
-        var box = go.GetComponent<BoxCollider>();
-        if (box == null)
-            box = go.AddComponent<BoxCollider>();
+        bool puerta = go.CompareTag("Puerta");
+        float padXz = puerta ? 1.4f : 0.5f;
+        float minXz = puerta ? 2.6f : 0.85f;
+        float minY = puerta ? 3.2f : 0.7f;
+        float sx = Mathf.Max(b.size.x + padXz * 2f, minXz);
+        float sy = Mathf.Max(b.size.y + 0.5f, minY);
+        float sz = Mathf.Max(b.size.z + padXz * 2f, minXz);
 
-        var lossy = go.transform.lossyScale;
+        var t = go.transform.Find("Trigger");
+        GameObject host;
+        if (t == null)
+        {
+            host = new GameObject("Trigger");
+            t = host.transform;
+        }
+        else
+            host = t.gameObject;
+
+        host.layer = go.layer;
+        host.tag = go.tag;
+
+        // World-aligned trigger. FBX roots are often rotated -90°, so a box
+        // sized from world AABB / lossyScale on the root is paper-thin and
+        // CharacterController never fires OnTriggerEnter.
+        t.SetParent(null);
+        t.position = new Vector3(b.center.x, b.min.y + sy * 0.5f, b.center.z);
+        t.rotation = Quaternion.identity;
+        t.localScale = Vector3.one;
+        t.SetParent(go.transform, true);
+
+        if (!host.TryGetComponent(out BoxCollider box))
+            box = host.AddComponent<BoxCollider>();
+
+        var ls = t.lossyScale;
+        box.center = Vector3.zero;
         box.size = new Vector3(
-            SafeDiv(b.size.x, lossy.x),
-            SafeDiv(b.size.y, lossy.y),
-            SafeDiv(b.size.z, lossy.z));
-        box.center = go.transform.InverseTransformPoint(b.center);
+            sx / Mathf.Max(Mathf.Abs(ls.x), 1e-4f),
+            sy / Mathf.Max(Mathf.Abs(ls.y), 1e-4f),
+            sz / Mathf.Max(Mathf.Abs(ls.z), 1e-4f));
         box.isTrigger = true;
+    }
 
-        foreach (var childCol in go.GetComponentsInChildren<Collider>(true))
-            childCol.isTrigger = true;
+    static void QuitarColliders(GameObject go)
+    {
+        var cols = go.GetComponentsInChildren<Collider>(true);
+        for (int i = cols.Length - 1; i >= 0; i--)
+        {
+            if (cols[i] != null)
+                UnityEngine.Object.DestroyImmediate(cols[i]);
+        }
     }
 
     static float SafeDiv(float a, float b)
