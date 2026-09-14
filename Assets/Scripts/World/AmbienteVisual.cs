@@ -104,9 +104,12 @@ public static class AmbienteVisual
             bool changed = false;
             var siguiente = (Material[])shared.Clone();
             int disco = ReconectarMateriales.IndiceDiscoFacial(renderer);
+            var rendererName = renderer.gameObject.name;
             for (int i = 0; i < shared.Length; i++)
             {
-                if (!EsSlotOjo(shared[i], renderer, shared.Length, i, disco))
+                if (!ReconectarMateriales.EsSlotOjo(i, shared.Length, shared[i], rendererName, disco))
+                    continue;
+                if (ReconectarMateriales.EsSlotBoca(i, shared.Length, shared[i], rendererName))
                     continue;
 
                 if (ojo != null)
@@ -114,7 +117,8 @@ public static class AmbienteVisual
                     siguiente[i] = ojo;
                     changed = true;
                 }
-                else if (tex != null && siguiente[i] != null)
+                else if (tex != null && siguiente[i] != null
+                    && !ReconectarMateriales.EsSlotBoca(i, shared.Length, siguiente[i], rendererName))
                 {
                     RepararShader(siguiente[i]);
                     siguiente[i].mainTexture = tex;
@@ -132,43 +136,6 @@ public static class AmbienteVisual
         }
 
         ReconectarMateriales.AsegurarBoca(mike);
-    }
-
-    static bool EsSlotOjo(Material material, Renderer renderer, int slots, int slot, int disco)
-    {
-        var nombreGuard = material != null ? material.name : null;
-        if (nombreGuard != null && nombreGuard.EndsWith(" (Instance)"))
-            nombreGuard = nombreGuard.Substring(0, nombreGuard.Length - " (Instance)".Length);
-        if (!string.IsNullOrEmpty(nombreGuard)
-            && (nombreGuard.IndexOf("Piel", System.StringComparison.OrdinalIgnoreCase) >= 0
-                || nombreGuard.IndexOf("Lengua", System.StringComparison.OrdinalIgnoreCase) >= 0
-                || nombreGuard.IndexOf("Paladar", System.StringComparison.OrdinalIgnoreCase) >= 0
-                || nombreGuard.IndexOf("Diente", System.StringComparison.OrdinalIgnoreCase) >= 0
-                || nombreGuard.IndexOf("Unia", System.StringComparison.OrdinalIgnoreCase) >= 0))
-            return false;
-
-        if (ReconectarMateriales.EsSlotBoca(slot, slots, material, renderer != null ? renderer.gameObject.name : null))
-            return false;
-
-        if (disco >= 0 && slot == disco)
-            return true;
-
-        if (ReconectarMateriales.EsNombreOjo(renderer != null ? renderer.gameObject.name : null)
-            && slots <= 1)
-            return true;
-
-        var nombre = material != null ? material.name : null;
-        if (nombre != null && nombre.EndsWith(" (Instance)"))
-            nombre = nombre.Substring(0, nombre.Length - " (Instance)".Length);
-        if (string.IsNullOrEmpty(nombre))
-            return false;
-        if (nombre.IndexOf("Lengua", System.StringComparison.OrdinalIgnoreCase) >= 0
-            || nombre.IndexOf("Paladar", System.StringComparison.OrdinalIgnoreCase) >= 0
-            || nombre.IndexOf("Diente", System.StringComparison.OrdinalIgnoreCase) >= 0
-            || nombre.IndexOf("Unia", System.StringComparison.OrdinalIgnoreCase) >= 0
-            || nombre.IndexOf("Piel", System.StringComparison.OrdinalIgnoreCase) >= 0)
-            return false;
-        return ReconectarMateriales.EsNombreOjo(nombre);
     }
 
     static void AplicarTexturaTiled(GameObject go, Material fuente, Texture textura, float tile, Color fallback)

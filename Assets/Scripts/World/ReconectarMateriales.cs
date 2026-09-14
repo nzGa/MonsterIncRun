@@ -20,10 +20,18 @@ public static class ReconectarMateriales
     const float BrilloVidrio = 0.95f;
     const int ColaGeometria = 2000;
 
-    // FBX ByPolygon / connection order on the skinned "Mike" mesh.
+    // Unity sharedMaterials first-occurrence on the skinned Mike mesh.
+    // FBX connection order is Piel, Unias, Lengua, Paladar, Ojo, Dientes — do not use that.
+    public const int SlotMikePiel = 0;
+    public const int SlotMikeUnias = 1;
+    public const int SlotMikeOjo = 2;
+    public const int SlotMikePaladar = 3;
+    public const int SlotMikeLengua = 4;
+    public const int SlotMikeDientes = 5;
+
     static readonly string[] SlotsMikePorIndice =
     {
-        "Piel", "Unias", "Lengua", "Paladar", "Ojo", "Dientes"
+        "Piel", "Unias", "Ojo", "Paladar", "Lengua", "Dientes"
     };
 
     static Dictionary<string, Material> _porNombre;
@@ -144,19 +152,18 @@ public static class ReconectarMateriales
             var shared = renderer.sharedMaterials;
             if (shared == null || shared.Length == 0)
             {
-                var unico = ElegirMatMike(mats, null, renderer, piel, ojo, 0, 0, -1);
+                var unico = ElegirMatMike(mats, null, renderer, piel, ojo, 0, -1);
                 if (unico != null)
                     renderer.sharedMaterial = unico;
                 continue;
             }
 
-            int mayorSub = IndiceSubmeshMayor(renderer);
             int discoOjo = IndiceDiscoFacial(renderer);
             bool changed = false;
             var siguiente = (Material[])shared.Clone();
             for (int i = 0; i < shared.Length; i++)
             {
-                var elegido = ElegirMatMike(mats, shared[i], renderer, piel, ojo, i, mayorSub, discoOjo);
+                var elegido = ElegirMatMike(mats, shared[i], renderer, piel, ojo, i, discoOjo);
                 if (elegido != null && elegido != siguiente[i])
                 {
                     siguiente[i] = elegido;
@@ -170,14 +177,10 @@ public static class ReconectarMateriales
                 changed = true;
             if (ForzarOjoEnDisco(siguiente, renderer, ojo))
                 changed = true;
-            if (ForzarBocaEnSlots(siguiente, lengua, paladar))
-                changed = true;
 
             if (changed)
                 renderer.sharedMaterials = siguiente;
         }
-
-        AsegurarBoca(root);
     }
 
     public static void AsegurarBoca(GameObject root)
@@ -203,7 +206,7 @@ public static class ReconectarMateriales
                 continue;
 
             var siguiente = (Material[])shared.Clone();
-            if (!ForzarBocaEnSlots(siguiente, lengua, paladar))
+            if (!ForzarBocaEnSlots(siguiente, lengua, paladar, renderer))
                 continue;
             renderer.sharedMaterials = siguiente;
         }
@@ -242,8 +245,50 @@ public static class ReconectarMateriales
         return _mike;
     }
 
+    static bool EsIndiceOjo(int slot, int slots)
+    {
+        return slots >= 6 && slot == SlotMikeOjo;
+    }
+
+    static bool EsIndiceBoca(int slot, int slots)
+    {
+        return slots >= 6 && (slot == SlotMikePaladar || slot == SlotMikeLengua);
+    }
+
+    public static bool EsSlotOjo(int slot, int slots, Material actual, string rendererName, int disco)
+    {
+        if (EsIndiceOjo(slot, slots))
+            return true;
+        if (disco >= 0 && slot == disco && !EsIndiceBoca(slot, slots))
+            return true;
+        if (EsNombreOjo(rendererName) && slots <= 1)
+            return true;
+        if (EsNombreOjo(NombreMaterial(actual)) && !EsIndiceBoca(slot, slots))
+            return true;
+        return false;
+    }
+
     public static int IndiceDiscoFacial(Renderer renderer)
     {
+        int slots = renderer != null && renderer.sharedMaterials != null
+            ? renderer.sharedMaterials.Length
+            : 0;
+        if (slots >= 6)
+            return SlotMikeOjo;
+
+        var shared = renderer != null ? renderer.sharedMaterials : null;
+        if (shared != null)
+        {
+            for (int i = 0; i < shared.Length; i++)
+            {
+                if (EsNombreOjo(NombreMaterial(shared[i])) && !EsIndiceBoca(i, shared.Length))
+                    return i;
+            }
+
+            if (EsNombreOjo(renderer.gameObject.name) && shared.Length <= 1)
+                return 0;
+        }
+
         var mesh = MeshDe(renderer);
         if (mesh == null || mesh.subMeshCount < 2)
             return -1;
@@ -252,13 +297,18 @@ public static class ReconectarMateriales
         float cuerpo = ExtensionSubmesh(mesh, mayor);
         int mejor = -1;
         float mejorVol = -1f;
-        int limite = Mathf.Min(mesh.subMeshCount, renderer.sharedMaterials != null
-            ? renderer.sharedMaterials.Length
-            : mesh.subMeshCount);
+        int limite = Mathf.Min(mesh.subMeshCount, slots > 0 ? slots : mesh.subMeshCount);
 
         for (int i = 0; i < limite; i++)
         {
             if (i == mayor)
+                continue;
+            if (EsIndiceBoca(i, limite))
+                continue;
+            var nombre = shared != null && i < shared.Length ? NombreMaterial(shared[i]) : null;
+            if (EsLengua(nombre) || EsPaladar(nombre) || EsPiel(nombre))
+                continue;
+            if (Contiene(nombre, "Unia") || Contiene(nombre, "Diente"))
                 continue;
             float ext = ExtensionSubmesh(mesh, i);
             if (cuerpo > 0.001f && ext > cuerpo * 0.55f)
@@ -279,13 +329,10 @@ public static class ReconectarMateriales
         if (slots == null || ojo == null)
             return false;
 
-        int disco = IndiceDiscoFacial(renderer);
+        int disco = slots.Length >= 6 ? SlotMikeOjo : IndiceDiscoFacial(renderer);
         if (disco < 0 || disco >= slots.Length)
             return false;
-        if (EsSlotBoca(disco, slots.Length, slots[disco], renderer != null ? renderer.gameObject.name : null))
-            return false;
-        int mayor = IndiceSubmeshMayor(renderer);
-        if (disco == mayor)
+        if (EsIndiceBoca(disco, slots.Length))
             return false;
         if (slots[disco] == ojo)
             return false;
@@ -294,25 +341,39 @@ public static class ReconectarMateriales
         return true;
     }
 
-    static bool ForzarBocaEnSlots(Material[] slots, Material lengua, Material paladar)
+    static bool ForzarBocaEnSlots(Material[] slots, Material lengua, Material paladar, Renderer renderer)
     {
-        bool changed = false;
         if (slots == null)
             return false;
 
-        if (lengua != null && slots.Length >= 6 && slots[2] != lengua)
+        bool changed = false;
+        int disco = IndiceDiscoFacial(renderer);
+        var rendererName = renderer != null ? renderer.gameObject.name : null;
+
+        if (slots.Length >= 6)
         {
-            slots[2] = lengua;
-            changed = true;
-        }
-        if (paladar != null && slots.Length >= 6 && slots[3] != paladar)
-        {
-            slots[3] = paladar;
-            changed = true;
+            if (paladar != null
+                && !EsSlotOjo(SlotMikePaladar, slots.Length, slots[SlotMikePaladar], rendererName, disco)
+                && slots[SlotMikePaladar] != paladar)
+            {
+                slots[SlotMikePaladar] = paladar;
+                changed = true;
+            }
+
+            if (lengua != null
+                && !EsSlotOjo(SlotMikeLengua, slots.Length, slots[SlotMikeLengua], rendererName, disco)
+                && slots[SlotMikeLengua] != lengua)
+            {
+                slots[SlotMikeLengua] = lengua;
+                changed = true;
+            }
         }
 
         for (int i = 0; i < slots.Length; i++)
         {
+            if (EsIndiceOjo(i, slots.Length) || EsSlotOjo(i, slots.Length, slots[i], rendererName, disco))
+                continue;
+
             var nombre = NombreMaterial(slots[i]);
             if (lengua != null && EsLengua(nombre) && slots[i] != lengua)
             {
@@ -331,7 +392,13 @@ public static class ReconectarMateriales
 
     public static bool EsSlotBoca(int slot, int slots, Material actual, string rendererName)
     {
-        if (slots >= 6 && (slot == 2 || slot == 3))
+        if (EsIndiceOjo(slot, slots))
+            return false;
+        if (EsNombreOjo(rendererName) && slots <= 1)
+            return false;
+        if (EsNombreOjo(NombreMaterial(actual)) && !EsIndiceBoca(slot, slots))
+            return false;
+        if (EsIndiceBoca(slot, slots))
             return true;
         return EsLengua(NombreMaterial(actual))
             || EsPaladar(NombreMaterial(actual))
@@ -344,15 +411,28 @@ public static class ReconectarMateriales
         if (slots == null || piel == null)
             return false;
 
-        int mayor = IndiceSubmeshMayor(renderer);
-        if (mayor < 0 || mayor >= slots.Length)
+        var rendererName = renderer != null ? renderer.gameObject.name : null;
+        int destino = slots.Length >= 6 ? SlotMikePiel : -1;
+        if (destino < 0)
+        {
+            int mayor = IndiceSubmeshMayor(renderer);
+            if (mayor >= 0
+                && mayor < slots.Length
+                && !EsSlotOjo(mayor, slots.Length, slots[mayor], rendererName, discoOjo)
+                && !EsSlotBoca(mayor, slots.Length, slots[mayor], rendererName))
+                destino = mayor;
+        }
+
+        if (destino < 0 || destino >= slots.Length)
             return false;
-        if (discoOjo >= 0 && mayor == discoOjo)
+        if (EsSlotOjo(destino, slots.Length, slots[destino], rendererName, discoOjo))
             return false;
-        if (slots[mayor] == piel)
+        if (EsSlotBoca(destino, slots.Length, slots[destino], rendererName))
+            return false;
+        if (slots[destino] == piel)
             return false;
 
-        slots[mayor] = piel;
+        slots[destino] = piel;
         return true;
     }
 
@@ -363,7 +443,6 @@ public static class ReconectarMateriales
         Material piel,
         Material ojo,
         int slot,
-        int mayorSub,
         int discoOjo)
     {
         var nombre = NombreMaterial(actual);
@@ -372,21 +451,15 @@ public static class ReconectarMateriales
             ? renderer.sharedMaterials.Length
             : 1;
 
-        if (discoOjo >= 0 && slot == discoOjo && !EsSlotBoca(slot, slots, actual, rendererName))
-            return ojo ?? piel;
+        var porIndice = SlotPorIndice(mats, slot, slots);
+        if (porIndice != null)
+            return porIndice;
 
-        if (EsNombreOjo(rendererName) && slots <= 1)
+        if (EsSlotOjo(slot, slots, actual, rendererName, discoOjo))
             return ojo ?? piel;
-
-        if (slots > 1 && slot == mayorSub)
-            return piel;
 
         if (EsCuerpoEntero(renderer, slots))
             return piel;
-
-        var porIndice = SlotPorIndice(mats, slot, slots);
-        if (porIndice != null && !EsNombreOjo(porIndice.name) && !EsPiel(porIndice.name))
-            return porIndice;
 
         if (slot != discoOjo)
         {
@@ -395,7 +468,7 @@ public static class ReconectarMateriales
                 return parte;
         }
 
-        if (EsNombreOjo(nombre))
+        if (EsNombreOjo(nombre) && !EsIndiceBoca(slot, slots))
             return ojo ?? piel;
 
         return MatchMikeNoOjo(mats, nombre, rendererName) ?? piel;
@@ -575,6 +648,9 @@ public static class ReconectarMateriales
         if (ReferenceEquals(mat, piel) || ReferenceEquals(mat, ojo))
             return;
         if (EsPiel(mat.name) || EsNombreOjo(mat.name))
+            return;
+        if (!EsLengua(mat.name) && !EsPaladar(mat.name)
+            && !Contiene(mat.name, "Diente") && !Contiene(mat.name, "Unia"))
             return;
 
         var shaderBoca = Shader.Find("Legacy Shaders/Diffuse")
