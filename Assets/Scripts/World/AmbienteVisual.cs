@@ -20,20 +20,24 @@ public static class AmbienteVisual
         RepararShader(sky, Shader.Find("Skybox/6 Sided") ?? Shader.Find("Skybox/Cubemap"));
         RenderSettings.skybox = sky;
         RenderSettings.ambientMode = AmbientMode.Trilight;
-        RenderSettings.ambientSkyColor = new Color(0.62f, 0.66f, 0.72f);
-        RenderSettings.ambientEquatorColor = new Color(0.42f, 0.43f, 0.45f);
-        RenderSettings.ambientGroundColor = new Color(0.22f, 0.20f, 0.18f);
-        RenderSettings.ambientIntensity = 1.15f;
+        RenderSettings.ambientSkyColor = new Color(0.76f, 0.80f, 0.88f);
+        RenderSettings.ambientEquatorColor = new Color(0.60f, 0.62f, 0.64f);
+        RenderSettings.ambientGroundColor = new Color(0.46f, 0.44f, 0.40f);
+        RenderSettings.ambientIntensity = 1.2f;
         RenderSettings.defaultReflectionMode = DefaultReflectionMode.Skybox;
-        RenderSettings.reflectionIntensity = 1f;
+        RenderSettings.reflectionIntensity = 0.45f;
         QualitySettings.realtimeReflectionProbes = true;
         DynamicGI.UpdateEnvironment();
 
+        var sol = new Color(1f, 0.975f, 0.90f);
         var luces = Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude);
         for (int i = 0; i < luces.Length; i++)
         {
-            if (luces[i] != null && luces[i].type == LightType.Directional && luces[i].intensity < 1.25f)
-                luces[i].intensity = 1.25f;
+            if (luces[i] == null || luces[i].type != LightType.Directional)
+                continue;
+            luces[i].intensity = 0.9f;
+            luces[i].color = sol;
+            luces[i].shadowStrength = 0.55f;
         }
     }
 
@@ -290,8 +294,8 @@ public static class AmbienteVisual
         probe.mode = ReflectionProbeMode.Realtime;
         probe.refreshMode = ReflectionProbeRefreshMode.EveryFrame;
         probe.timeSlicingMode = ReflectionProbeTimeSlicingMode.NoTimeSlicing;
-        probe.boxProjection = true;
-        probe.intensity = 1.2f;
+        probe.boxProjection = false;
+        probe.intensity = 0.5f;
         probe.importance = 10;
         probe.resolution = 128;
         probe.hdr = true;
