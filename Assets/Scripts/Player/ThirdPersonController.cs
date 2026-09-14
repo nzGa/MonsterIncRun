@@ -17,9 +17,10 @@ public class ThirdPersonController : MonoBehaviour
     public float landAnimationSpeed = 1f;
     public float walkSpeed = 2f;
     public float trotSpeed = 4f;
-    public float runSpeed = 6f;
+    public float runSpeed = 9f;
     const float WalkSpeedUnity4 = 2f;
-    const float RunSpeedUnity4 = 6f;
+    const float RunSpeedBase = 9f;
+    const float RunSpeedZapato = 12f;
     const float RunAnimSpeed = 2.25f;
     const float RunAnimSpeedZapato = 2.9f;
     public float inAirControlAcceleration = 3f;
@@ -71,7 +72,7 @@ public class ThirdPersonController : MonoBehaviour
             _animation = GetComponentInChildren<Animation>();
         AsignarClipsSiFaltan();
         walkSpeed = WalkSpeedUnity4;
-        runSpeed = RunSpeedUnity4;
+        runSpeed = RunSpeedBase;
         runMaxAnimationSpeed = RunAnimSpeed;
     }
 
@@ -264,12 +265,12 @@ public class ThirdPersonController : MonoBehaviour
 
         if (ObjetosPorJugador.TieneZapato)
         {
-            runSpeed = 10f;
+            runSpeed = RunSpeedZapato;
             runMaxAnimationSpeed = RunAnimSpeedZapato;
         }
         else
         {
-            runSpeed = RunSpeedUnity4;
+            runSpeed = RunSpeedBase;
             runMaxAnimationSpeed = RunAnimSpeed;
         }
 
