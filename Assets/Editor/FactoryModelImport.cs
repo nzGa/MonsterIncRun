@@ -183,11 +183,11 @@ public class FactoryModelImport : AssetPostprocessor
             mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
             mat.renderQueue = 2000;
             if (mat.HasProperty("_Metallic"))
-                mat.SetFloat("_Metallic", 0.88f);
+                mat.SetFloat("_Metallic", 0.62f);
             if (mat.HasProperty("_Glossiness"))
-                mat.SetFloat("_Glossiness", 0.95f);
+                mat.SetFloat("_Glossiness", 0.78f);
             if (mat.HasProperty("_Smoothness"))
-                mat.SetFloat("_Smoothness", 0.95f);
+                mat.SetFloat("_Smoothness", 0.78f);
             if (mat.HasProperty("_GlossyReflections"))
                 mat.SetFloat("_GlossyReflections", 1f);
             EditorUtility.SetDirty(mat);

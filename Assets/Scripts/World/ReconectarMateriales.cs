@@ -14,8 +14,8 @@ public static class ReconectarMateriales
     const float BrilloPipe = 0.42f;
     const float MetalicoChim = 0.72f;
     const float BrilloChim = 0.48f;
-    const float MetalicoVidrio = 0.88f;
-    const float BrilloVidrio = 0.95f;
+    const float MetalicoVidrio = 0.62f;
+    const float BrilloVidrio = 0.78f;
     const int ColaGeometria = 2000;
 
     // FBX ByPolygon / connection order on the skinned "Mike" mesh.
