@@ -293,6 +293,17 @@ public class ThirdPersonController : MonoBehaviour
         if (controller != null && !ObjetosPorJugador.JugadorHaGanado && !ObjetosPorJugador.JugadorHaPerdido)
             collisionFlags = controller.Move(movement);
 
+        if (transform.position.y < AmbienteTerreno.YCaida)
+        {
+            SpawnJugador.Recolocar(transform);
+            verticalSpeed = 0f;
+            inAirVelocity = Vector3.zero;
+            jumping = false;
+            jumpingReachedApex = false;
+            if (controller != null)
+                collisionFlags = controller.Move(Vector3.down * 0.05f);
+        }
+
         Animar(controller);
 
         // Face the WASD move vector only. Mouse orbit never copies onto transform.forward.
