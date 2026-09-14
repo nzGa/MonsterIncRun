@@ -7,6 +7,8 @@ public static class AmbienteTerreno
     const float AltoOriginal = 50f;
     const float Largo = 200f;
     const float RadioFabricaLibre = 22f;
+    const float TerrenoY = -0.02f;
+    public const float YCaida = -5f;
 
     static Material _tronco;
     static Material _hojas;
@@ -20,42 +22,119 @@ public static class AmbienteTerreno
         if (viejoCesped != null)
             Object.Destroy(viejoCesped);
 
-        if (Terrain.activeTerrain != null)
-            return;
-
-        var data = new TerrainData
+        if (Terrain.activeTerrain == null)
         {
-            heightmapResolution = Resolucion,
-            size = new Vector3(Ancho, AltoOriginal, Largo),
-            alphamapResolution = 256,
-            baseMapResolution = 256
-        };
+            var data = new TerrainData
+            {
+                heightmapResolution = Resolucion,
+                size = new Vector3(Ancho, AltoOriginal, Largo),
+                alphamapResolution = 256,
+                baseMapResolution = 256
+            };
 
-        if (!AplicarHeightmapOriginal(data))
-            GenerarColinasAlrededor(data);
+            if (!AplicarHeightmapOriginal(data))
+                GenerarColinasAlrededor(data);
 
-        AplicarCapas(data);
-        PintarLaderas(data);
+            AplicarCapas(data);
+            PintarLaderas(data);
 
-        var go = Terrain.CreateTerrainGameObject(data);
-        go.name = "Terreno";
-        go.transform.position = new Vector3(-Ancho * 0.5f, -0.02f, -Largo * 0.5f);
+            var go = Terrain.CreateTerrainGameObject(data);
+            go.name = "Terreno";
+            go.transform.position = OrigenTerreno();
 
-        var terrain = go.GetComponent<Terrain>();
-        terrain.heightmapPixelError = 8f;
-        terrain.basemapDistance = 180f;
-        terrain.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
-        terrain.drawInstanced = true;
-        terrain.Flush();
+            var terrain = go.GetComponent<Terrain>();
+            terrain.heightmapPixelError = 8f;
+            terrain.basemapDistance = 180f;
+            terrain.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            terrain.drawInstanced = true;
+            terrain.Flush();
 
-        try
-        {
-            ColocarVegetacion(terrain);
+            try
+            {
+                ColocarVegetacion(terrain);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("AmbienteTerreno vegetacion: " + e.Message);
+            }
         }
-        catch (System.Exception e)
+
+        CrearLimites();
+    }
+
+    static Vector3 OrigenTerreno()
+    {
+        return new Vector3(-Ancho * 0.5f, TerrenoY, -Largo * 0.5f);
+    }
+
+    static Vector3 TamanoTerreno()
+    {
+        return new Vector3(Ancho, AltoOriginal, Largo);
+    }
+
+    public static Bounds BoundsJugables()
+    {
+        var terrain = Terrain.activeTerrain;
+        if (terrain != null && terrain.terrainData != null)
         {
-            Debug.LogWarning("AmbienteTerreno vegetacion: " + e.Message);
+            var pos = terrain.transform.position;
+            var size = terrain.terrainData.size;
+            return new Bounds(pos + size * 0.5f, size);
         }
+
+        var origen = OrigenTerreno();
+        var tam = TamanoTerreno();
+        return new Bounds(origen + tam * 0.5f, tam);
+    }
+
+    static void CrearLimites()
+    {
+        var viejo = GameObject.Find("LimitesMapa");
+        if (viejo != null)
+            Object.DestroyImmediate(viejo);
+
+        var b = BoundsJugables();
+        const float grosor = 4f;
+        const float extraAlto = 30f;
+        const float margenPiso = 8f;
+        float yMin = Mathf.Min(b.min.y, YCaida) - 4f;
+        float yMax = b.max.y + extraAlto;
+        float alto = yMax - yMin;
+        float yCentro = (yMin + yMax) * 0.5f;
+        float zMuro = b.size.z + grosor * 2f;
+
+        var padre = new GameObject("LimitesMapa");
+
+        CrearCajaInvisible(padre.transform, "Muro+X",
+            new Vector3(b.max.x + grosor * 0.5f, yCentro, b.center.z),
+            new Vector3(grosor, alto, zMuro));
+        CrearCajaInvisible(padre.transform, "Muro-X",
+            new Vector3(b.min.x - grosor * 0.5f, yCentro, b.center.z),
+            new Vector3(grosor, alto, zMuro));
+        CrearCajaInvisible(padre.transform, "Muro+Z",
+            new Vector3(b.center.x, yCentro, b.max.z + grosor * 0.5f),
+            new Vector3(b.size.x, alto, grosor));
+        CrearCajaInvisible(padre.transform, "Muro-Z",
+            new Vector3(b.center.x, yCentro, b.min.z - grosor * 0.5f),
+            new Vector3(b.size.x, alto, grosor));
+
+        const float pisoGrosor = 2f;
+        float pisoTop = YCaida - 1f;
+        CrearCajaInvisible(padre.transform, "PisoCatch",
+            new Vector3(b.center.x, pisoTop - pisoGrosor * 0.5f, b.center.z),
+            new Vector3(b.size.x + margenPiso * 2f, pisoGrosor, b.size.z + margenPiso * 2f));
+    }
+
+    static void CrearCajaInvisible(Transform padre, string nombre, Vector3 centro, Vector3 tamano)
+    {
+        var go = new GameObject(nombre);
+        go.transform.SetParent(padre, false);
+        go.transform.position = centro;
+        go.transform.rotation = Quaternion.identity;
+        var box = go.AddComponent<BoxCollider>();
+        box.center = Vector3.zero;
+        box.size = tamano;
+        box.isTrigger = false;
     }
 
     public static float AlturaEn(Vector3 mundo)

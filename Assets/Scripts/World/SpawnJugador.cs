@@ -15,10 +15,7 @@ public class SpawnJugador : MonoBehaviour
 
     void SpawnPlayer()
     {
-        var puntos = GameObject.FindGameObjectsWithTag("SpawnMike");
-        Transform spawn = puntos.Length > 0 ? puntos[UnityEngine.Random.Range(0, puntos.Length)].transform : null;
-        Vector3 pos = spawn != null ? spawn.position : new Vector3(0, 1, -14);
-        Quaternion rot = spawn != null ? spawn.rotation : Quaternion.identity;
+        PuntoSpawn(out Vector3 pos, out Quaternion rot);
 
         GameObject source = mikePrefab != null
             ? mikePrefab
@@ -75,6 +72,28 @@ public class SpawnJugador : MonoBehaviour
             nombre.nombreJugador = multi != null ? multi.nombreJugador : "Mike";
             nombre.fNombreSeteado = true;
         }
+    }
+
+    public static void PuntoSpawn(out Vector3 pos, out Quaternion rot)
+    {
+        var puntos = GameObject.FindGameObjectsWithTag("SpawnMike");
+        Transform spawn = puntos.Length > 0 ? puntos[UnityEngine.Random.Range(0, puntos.Length)].transform : null;
+        pos = spawn != null ? spawn.position : new Vector3(0, 1, -14);
+        rot = spawn != null ? spawn.rotation : Quaternion.identity;
+    }
+
+    public static void Recolocar(Transform player)
+    {
+        if (player == null)
+            return;
+
+        PuntoSpawn(out Vector3 pos, out Quaternion rot);
+        var cc = player.GetComponent<CharacterController>();
+        if (cc != null)
+            cc.enabled = false;
+        player.SetPositionAndRotation(pos, rot);
+        if (cc != null)
+            cc.enabled = true;
     }
 
     static void AsegurarAnimacion(GameObject player)
