@@ -58,6 +58,6 @@ public class MenuPrincipal : MonoBehaviour
         iniciar.onClick.AddListener(() => SceneManager.LoadScene(escenaJuego));
 
         var salir = UiFactory.AddButton(panel.transform, "Salir", "Salir", new Vector2(0f, -72f), new Vector2(360f, 70f));
-        salir.onClick.AddListener(Application.Quit);
+        salir.onClick.AddListener(UiFactory.Salir);
     }
 }
