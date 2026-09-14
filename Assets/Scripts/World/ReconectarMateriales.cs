@@ -8,12 +8,15 @@ public static class ReconectarMateriales
     static readonly Color VerdePiel = new Color(0.50f, 0.78f, 0.15f);
     static readonly Color ColorPipe1 = Color.white;
     static readonly Color ColorPipe2 = new Color(0.96f, 0.97f, 1f);
-    static readonly Color ColorVidrio = new Color(0.38f, 0.78f, 0.88f, 0.38f);
+    static readonly Color ColorVidrio = new Color(0.58f, 0.72f, 0.78f, 1f);
     static readonly Color ColorChimenea = new Color(0.92f, 0.94f, 0.96f, 1f);
     const float MetalicoPipe = 0.58f;
     const float BrilloPipe = 0.42f;
     const float MetalicoChim = 0.72f;
     const float BrilloChim = 0.48f;
+    const float MetalicoVidrio = 0.88f;
+    const float BrilloVidrio = 0.95f;
+    const int ColaGeometria = 2000;
 
     // FBX ByPolygon / connection order on the skinned "Mike" mesh.
     static readonly string[] SlotsMikePorIndice =
@@ -955,8 +958,8 @@ public static class ReconectarMateriales
     static Shader ShaderVidrio()
     {
         return Shader.Find("Standard")
-            ?? Shader.Find("Legacy Shaders/Transparent/Diffuse")
-            ?? Shader.Find("Transparent/Diffuse");
+            ?? Shader.Find("Legacy Shaders/Diffuse")
+            ?? Shader.Find("Diffuse");
     }
 
     static bool PintarVidrio(Material material)
@@ -968,6 +971,7 @@ public static class ReconectarMateriales
         var colorAntes = material.HasProperty("_Color") ? material.color : Color.clear;
         float metalAntes = material.HasProperty("_Metallic") ? material.GetFloat("_Metallic") : -1f;
         float brilloAntes = material.HasProperty("_Glossiness") ? material.GetFloat("_Glossiness") : -1f;
+        int colaAntes = material.renderQueue;
         var shader = ShaderVidrio();
         if (shader != null)
             material.shader = shader;
@@ -977,33 +981,34 @@ public static class ReconectarMateriales
         if (material.HasProperty("_Color"))
             material.color = ColorVidrio;
 
-        // Standard Transparent: glass that samples realtime reflection probes.
-        material.SetOverrideTag("RenderType", "Transparent");
+        // Opaque Standard: hide the factory interior; metal/smooth samples the realtime probe.
+        material.SetOverrideTag("RenderType", "Opaque");
         if (material.HasProperty("_Mode"))
-            material.SetFloat("_Mode", 3f);
+            material.SetFloat("_Mode", 0f);
         material.SetInt("_SrcBlend", (int)BlendMode.One);
-        material.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
-        material.SetInt("_ZWrite", 0);
+        material.SetInt("_DstBlend", (int)BlendMode.Zero);
+        material.SetInt("_ZWrite", 1);
         material.DisableKeyword("_ALPHATEST_ON");
         material.DisableKeyword("_ALPHABLEND_ON");
-        material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-        material.renderQueue = 3000;
+        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        material.renderQueue = ColaGeometria;
 
         if (material.HasProperty("_Metallic"))
-            material.SetFloat("_Metallic", 0f);
+            material.SetFloat("_Metallic", MetalicoVidrio);
         if (material.HasProperty("_Glossiness"))
-            material.SetFloat("_Glossiness", 0.94f);
+            material.SetFloat("_Glossiness", BrilloVidrio);
         if (material.HasProperty("_Smoothness"))
-            material.SetFloat("_Smoothness", 0.94f);
+            material.SetFloat("_Smoothness", BrilloVidrio);
         if (material.HasProperty("_GlossyReflections"))
             material.SetFloat("_GlossyReflections", 1f);
         if (material.HasProperty("_SpecularHighlights"))
             material.SetFloat("_SpecularHighlights", 1f);
 
         return material.shader != anterior
+            || colaAntes != ColaGeometria
             || (material.HasProperty("_Color") && material.color != colorAntes)
-            || (material.HasProperty("_Metallic") && !Mathf.Approximately(metalAntes, 0f))
-            || (material.HasProperty("_Glossiness") && !Mathf.Approximately(brilloAntes, 0.94f));
+            || (material.HasProperty("_Metallic") && !Mathf.Approximately(metalAntes, MetalicoVidrio))
+            || (material.HasProperty("_Glossiness") && !Mathf.Approximately(brilloAntes, BrilloVidrio));
     }
 
     static bool PintarChimenea(Material material)

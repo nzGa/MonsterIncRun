@@ -278,12 +278,20 @@ public static class AmbienteVisual
         if (!host.TryGetComponent(out ReflectionProbe probe))
             probe = host.AddComponent<ReflectionProbe>();
 
+        // Opaque windows hide the interior; the cubemap should be sky, Mike, and terrain.
+        const int capaFabrica = 30;
+        if (fabrica != null)
+        {
+            foreach (var t in fabrica.GetComponentsInChildren<Transform>(true))
+                t.gameObject.layer = capaFabrica;
+        }
+
         probe.enabled = true;
         probe.mode = ReflectionProbeMode.Realtime;
         probe.refreshMode = ReflectionProbeRefreshMode.EveryFrame;
         probe.timeSlicingMode = ReflectionProbeTimeSlicingMode.NoTimeSlicing;
         probe.boxProjection = true;
-        probe.intensity = 1.05f;
+        probe.intensity = 1.2f;
         probe.importance = 10;
         probe.resolution = 128;
         probe.hdr = true;
@@ -291,7 +299,7 @@ public static class AmbienteVisual
         probe.farClipPlane = Mathf.Max(70f, bounds.extents.magnitude * 2.2f);
         probe.shadowDistance = 42f;
         probe.clearFlags = ReflectionProbeClearFlags.Skybox;
-        probe.cullingMask = ~0;
+        probe.cullingMask = ~(1 << capaFabrica);
         probe.size = bounds.size;
         probe.center = Vector3.zero;
         probe.blendDistance = 10f;

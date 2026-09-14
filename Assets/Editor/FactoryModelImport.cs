@@ -163,15 +163,33 @@ public class FactoryModelImport : AssetPostprocessor
 
         if (esVidrio)
         {
-            var glassShader = Shader.Find("Legacy Shaders/Transparent/Diffuse")
-                ?? Shader.Find("Transparent/Diffuse")
-                ?? Shader.Find("Standard");
+            var glassShader = Shader.Find("Standard")
+                ?? Shader.Find("Legacy Shaders/Diffuse")
+                ?? Shader.Find("Diffuse");
             if (glassShader != null)
                 mat.shader = glassShader;
             if (mat.HasProperty("_MainTex"))
                 mat.mainTexture = null;
             if (mat.HasProperty("_Color"))
-                mat.color = new Color(0.38f, 0.78f, 0.88f, 0.38f);
+                mat.color = new Color(0.58f, 0.72f, 0.78f, 1f);
+            mat.SetOverrideTag("RenderType", "Opaque");
+            if (mat.HasProperty("_Mode"))
+                mat.SetFloat("_Mode", 0f);
+            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+            mat.SetInt("_ZWrite", 1);
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.DisableKeyword("_ALPHABLEND_ON");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            mat.renderQueue = 2000;
+            if (mat.HasProperty("_Metallic"))
+                mat.SetFloat("_Metallic", 0.88f);
+            if (mat.HasProperty("_Glossiness"))
+                mat.SetFloat("_Glossiness", 0.95f);
+            if (mat.HasProperty("_Smoothness"))
+                mat.SetFloat("_Smoothness", 0.95f);
+            if (mat.HasProperty("_GlossyReflections"))
+                mat.SetFloat("_GlossyReflections", 1f);
             EditorUtility.SetDirty(mat);
             return;
         }

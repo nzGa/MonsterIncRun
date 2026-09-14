@@ -30,8 +30,8 @@ public static class ProjectBootstrap
         ("ground", new Color(0.42f, 0.40f, 0.36f)),
         ("ground1", new Color(0.38f, 0.36f, 0.32f)),
         ("ground3", new Color(0.34f, 0.32f, 0.28f)),
-        ("glass", new Color(0.38f, 0.78f, 0.88f, 0.38f)),
-        ("window", new Color(0.38f, 0.78f, 0.88f, 0.38f)),
+        ("glass", new Color(0.58f, 0.72f, 0.78f, 1f)),
+        ("window", new Color(0.58f, 0.72f, 0.78f, 1f)),
         ("fence", new Color(0.85f, 0.85f, 0.86f)),
         ("pipe1", Color.white),
         ("pipe2", new Color(0.96f, 0.97f, 1f)),
@@ -346,10 +346,13 @@ public static class ProjectBootstrap
 
     static void EnsureGlassMaterials()
     {
-        var cyan = new Color(0.38f, 0.78f, 0.88f, 0.38f);
+        var tint = new Color(0.58f, 0.72f, 0.78f, 1f);
+        const float metal = 0.88f;
+        const float brillo = 0.95f;
+        const int colaGeometria = 2000;
         var shader = Shader.Find("Standard")
-            ?? Shader.Find("Legacy Shaders/Transparent/Diffuse")
-            ?? Shader.Find("Transparent/Diffuse");
+            ?? Shader.Find("Legacy Shaders/Diffuse")
+            ?? Shader.Find("Diffuse");
 
         foreach (var name in new[] { "glass", "window" })
         {
@@ -369,41 +372,46 @@ public static class ProjectBootstrap
                 mat.mainTexture = null;
                 dirty = true;
             }
-            if (mat.HasProperty("_Color") && mat.color != cyan)
+            if (mat.HasProperty("_Color") && mat.color != tint)
             {
-                mat.color = cyan;
+                mat.color = tint;
                 dirty = true;
             }
 
-            mat.SetOverrideTag("RenderType", "Transparent");
-            if (mat.HasProperty("_Mode"))
-                mat.SetFloat("_Mode", 3f);
+            mat.SetOverrideTag("RenderType", "Opaque");
+            if (mat.HasProperty("_Mode") && !Mathf.Approximately(mat.GetFloat("_Mode"), 0f))
+            {
+                mat.SetFloat("_Mode", 0f);
+                dirty = true;
+            }
             mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            mat.SetInt("_ZWrite", 0);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+            mat.SetInt("_ZWrite", 1);
             mat.DisableKeyword("_ALPHATEST_ON");
             mat.DisableKeyword("_ALPHABLEND_ON");
-            mat.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-            if (mat.renderQueue != 3000)
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            if (mat.renderQueue != colaGeometria)
             {
-                mat.renderQueue = 3000;
+                mat.renderQueue = colaGeometria;
                 dirty = true;
             }
-            if (mat.HasProperty("_Metallic") && !Mathf.Approximately(mat.GetFloat("_Metallic"), 0f))
+            if (mat.HasProperty("_Metallic") && !Mathf.Approximately(mat.GetFloat("_Metallic"), metal))
             {
-                mat.SetFloat("_Metallic", 0f);
+                mat.SetFloat("_Metallic", metal);
                 dirty = true;
             }
-            if (mat.HasProperty("_Glossiness") && !Mathf.Approximately(mat.GetFloat("_Glossiness"), 0.94f))
+            if (mat.HasProperty("_Glossiness") && !Mathf.Approximately(mat.GetFloat("_Glossiness"), brillo))
             {
-                mat.SetFloat("_Glossiness", 0.94f);
+                mat.SetFloat("_Glossiness", brillo);
                 dirty = true;
             }
-            if (mat.HasProperty("_Smoothness") && !Mathf.Approximately(mat.GetFloat("_Smoothness"), 0.94f))
+            if (mat.HasProperty("_Smoothness") && !Mathf.Approximately(mat.GetFloat("_Smoothness"), brillo))
             {
-                mat.SetFloat("_Smoothness", 0.94f);
+                mat.SetFloat("_Smoothness", brillo);
                 dirty = true;
             }
+            if (mat.HasProperty("_GlossyReflections"))
+                mat.SetFloat("_GlossyReflections", 1f);
             if (dirty)
                 EditorUtility.SetDirty(mat);
         }
