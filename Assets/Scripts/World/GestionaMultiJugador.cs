@@ -7,6 +7,8 @@ public class GestionaMultiJugador : MonoBehaviour
 {
     [SerializeField] float _segundosParaPerder = 900f;
 
+    public static GestionaMultiJugador Instancia { get; private set; }
+
     public static bool juegoIniciado;
     public bool juegoFinalizado;
     public bool cursorBloqueado = true;
@@ -16,6 +18,27 @@ public class GestionaMultiJugador : MonoBehaviour
 
     Canvas _pauseCanvas;
     GameObject _pauseRoot;
+
+    public static bool ControlJugadorActivo
+    {
+        get
+        {
+            if (Instancia == null)
+                return !AltLiberaCursor();
+            return Instancia.QuiereCapturarCursor();
+        }
+    }
+
+    void Awake()
+    {
+        Instancia = this;
+    }
+
+    void OnDestroy()
+    {
+        if (Instancia == this)
+            Instancia = null;
+    }
 
     void Start()
     {
@@ -37,6 +60,8 @@ public class GestionaMultiJugador : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Escape))
             TogglePausa();
+
+        AplicarCursor();
     }
 
     void TogglePausa()
@@ -48,10 +73,28 @@ public class GestionaMultiJugador : MonoBehaviour
         AplicarCursor();
     }
 
+    bool QuiereCapturarCursor()
+    {
+        return cursorBloqueado && !AltLiberaCursor();
+    }
+
+    static bool AltLiberaCursor()
+    {
+        return Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+    }
+
     public void AplicarCursor()
     {
-        Cursor.lockState = cursorBloqueado ? CursorLockMode.Locked : CursorLockMode.None;
-        Cursor.visible = !cursorBloqueado;
+        bool capturar = QuiereCapturarCursor();
+        if (Application.isEditor)
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            return;
+        }
+
+        Cursor.lockState = capturar ? CursorLockMode.Locked : CursorLockMode.None;
+        Cursor.visible = !capturar;
     }
 
     void PerderPorTiempo()

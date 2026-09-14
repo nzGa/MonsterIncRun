@@ -4,21 +4,26 @@ public class ObtieneObjeto : MonoBehaviour
 {
     void OnTriggerEnter(Collider c)
     {
-        switch (c.gameObject.tag)
+        var pickup = RaizPickup(c.transform);
+        if (pickup == null)
+            return;
+
+        switch (pickup.tag)
         {
             case "Tubo":
                 if (!ObjetosPorJugador.TieneTubo)
                 {
                     GameGUI.MjeTieneTubo = true;
                     ObjetosPorJugador.TieneTubo = true;
-                    Destroy(c.gameObject);
+                    Destroy(pickup.gameObject);
                 }
                 else
                     GameGUI.MjeYaTenesTubo = true;
                 break;
 
             case "Caja":
-                var contenido = c.gameObject.GetComponent<ContenidoCaja>();
+                var contenido = pickup.GetComponent<ContenidoCaja>()
+                    ?? pickup.GetComponentInChildren<ContenidoCaja>();
                 int item = contenido != null ? contenido.NumeroItem : 0;
                 switch (item)
                 {
@@ -31,7 +36,7 @@ public class ObtieneObjeto : MonoBehaviour
                             GameGUI.MjeTieneZoquete = true;
                             ObjetosPorJugador.TieneZoquete = true;
                         }
-                        Destroy(c.gameObject);
+                        Destroy(pickup.gameObject);
                         break;
                     case 1:
                         if (ObjetosPorJugador.TieneCasco)
@@ -41,7 +46,7 @@ public class ObtieneObjeto : MonoBehaviour
                             GameGUI.MjeTieneCasco = true;
                             ObjetosPorJugador.TieneCasco = true;
                         }
-                        Destroy(c.gameObject);
+                        Destroy(pickup.gameObject);
                         break;
                     case 2:
                         if (ObjetosPorJugador.TieneZapato)
@@ -51,7 +56,7 @@ public class ObtieneObjeto : MonoBehaviour
                             ObjetosPorJugador.TieneZapato = true;
                             GameGUI.MensajeZapato = true;
                         }
-                        Destroy(c.gameObject);
+                        Destroy(pickup.gameObject);
                         break;
                 }
                 break;
@@ -78,5 +83,31 @@ public class ObtieneObjeto : MonoBehaviour
                     ObjetosPorJugador.TocandoPuerta = true;
                 break;
         }
+    }
+
+    static Transform RaizPickup(Transform t)
+    {
+        if (t == null)
+            return null;
+
+        var root = t;
+        while (root.parent != null && !EsPickup(root))
+            root = root.parent;
+
+        if (!EsPickup(root))
+            return null;
+
+        while (root.parent != null && EsPickup(root.parent))
+            root = root.parent;
+
+        return root;
+    }
+
+    static bool EsPickup(Transform t)
+    {
+        return t.CompareTag("Tubo")
+            || t.CompareTag("Caja")
+            || t.CompareTag("Puerta")
+            || t.CompareTag("Ducha");
     }
 }

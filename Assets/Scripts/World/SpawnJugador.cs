@@ -1,8 +1,11 @@
+using System;
 using UnityEngine;
 
 [DefaultExecutionOrder(-50)]
 public class SpawnJugador : MonoBehaviour
 {
+    static readonly string[] TakesMike = { "Espera", "Camina", "Corre", "Salta", "Gana", "Pierde" };
+
     public GameObject mikePrefab;
 
     void Start()
@@ -13,7 +16,7 @@ public class SpawnJugador : MonoBehaviour
     void SpawnPlayer()
     {
         var puntos = GameObject.FindGameObjectsWithTag("SpawnMike");
-        Transform spawn = puntos.Length > 0 ? puntos[Random.Range(0, puntos.Length)].transform : null;
+        Transform spawn = puntos.Length > 0 ? puntos[UnityEngine.Random.Range(0, puntos.Length)].transform : null;
         Vector3 pos = spawn != null ? spawn.position : new Vector3(0, 1, -14);
         Quaternion rot = spawn != null ? spawn.rotation : Quaternion.identity;
 
@@ -42,8 +45,15 @@ public class SpawnJugador : MonoBehaviour
             cc.radius = 0.4f;
         }
 
-        if (player.GetComponent<ThirdPersonController>() == null)
-            player.AddComponent<ThirdPersonController>();
+        AsegurarAnimacion(player);
+        ReconectarMateriales.EnMike(player);
+        AmbienteVisual.AsignarPupila(player);
+
+        var tpc = player.GetComponent<ThirdPersonController>();
+        if (tpc == null)
+            tpc = player.AddComponent<ThirdPersonController>();
+        else
+            tpc.RecargarClips();
         if (player.GetComponent<MouseOrbit>() == null)
             player.AddComponent<MouseOrbit>();
         if (player.GetComponent<ObtieneObjeto>() == null)
@@ -65,5 +75,107 @@ public class SpawnJugador : MonoBehaviour
             nombre.nombreJugador = multi != null ? multi.nombreJugador : "Mike";
             nombre.fNombreSeteado = true;
         }
+    }
+
+    static void AsegurarAnimacion(GameObject player)
+    {
+        var animator = player.GetComponent<Animator>();
+        if (animator != null)
+            Destroy(animator);
+
+        var anim = player.GetComponent<Animation>();
+        if (anim == null)
+            anim = player.GetComponentInChildren<Animation>();
+        if (anim == null)
+            anim = player.AddComponent<Animation>();
+
+        foreach (var take in TakesMike)
+        {
+            if (BuscarClip(anim, take) != null)
+                continue;
+            var clip = CargarClipMike(take);
+            if (clip == null)
+                continue;
+            anim.AddClip(clip, take);
+            var state = anim[take];
+            if (state != null)
+            {
+                bool loop = take == "Espera" || take == "Camina" || take == "Corre";
+                state.wrapMode = loop ? WrapMode.Loop : WrapMode.Once;
+            }
+        }
+
+        var espera = BuscarClip(anim, "Espera") ?? PrimerClip(anim);
+        if (espera == null)
+            return;
+
+        if (anim.GetClip(espera.name) == null)
+            anim.AddClip(espera, espera.name);
+        anim.clip = espera;
+        anim.wrapMode = WrapMode.Loop;
+        anim.Play(espera.name);
+    }
+
+    static AnimationClip CargarClipMike(string take)
+    {
+        var clips = Resources.LoadAll<AnimationClip>("Models/Mike/Mike@" + take);
+        if (clips != null)
+        {
+            foreach (var clip in clips)
+            {
+                if (clip != null && NombreCoincide(clip.name, take))
+                    return clip;
+            }
+            if (clips.Length > 0 && clips[0] != null)
+                return clips[0];
+        }
+
+        var go = ModelLoader.Load("Models/Mike/Mike@" + take, "Assets/Resources/Models/Mike/Mike@" + take + ".FBX");
+        if (go == null)
+            return null;
+
+        var other = go.GetComponent<Animation>() ?? go.GetComponentInChildren<Animation>();
+        if (other == null)
+            return null;
+
+        return BuscarClip(other, take) ?? PrimerClip(other);
+    }
+
+    static AnimationClip BuscarClip(Animation anim, string take)
+    {
+        if (anim == null)
+            return null;
+
+        var exact = anim.GetClip(take);
+        if (exact != null)
+            return exact;
+
+        foreach (AnimationState state in anim)
+        {
+            if (state.clip != null && NombreCoincide(state.clip.name, take))
+                return state.clip;
+        }
+        return null;
+    }
+
+    static AnimationClip PrimerClip(Animation anim)
+    {
+        if (anim == null)
+            return null;
+        foreach (AnimationState state in anim)
+        {
+            if (state.clip != null)
+                return state.clip;
+        }
+        return null;
+    }
+
+    static bool NombreCoincide(string clipName, string take)
+    {
+        if (string.IsNullOrEmpty(clipName) || string.IsNullOrEmpty(take))
+            return false;
+        if (string.Equals(clipName, take, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return clipName.IndexOf(take, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 }

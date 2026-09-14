@@ -10,7 +10,9 @@ public class SpawnObjetos : MonoBehaviour
 
     void Start()
     {
+        AmbienteVisual.AplicarCielo();
         AsegurarSuelo();
+        AmbienteVisual.AsegurarCesped();
         AsegurarFabrica();
         AsegurarPuntosSiFaltan();
 
@@ -29,29 +31,71 @@ public class SpawnObjetos : MonoBehaviour
 
     void AsegurarSuelo()
     {
-        if (GameObject.Find("Suelo") != null)
-            return;
+        var suelo = GameObject.Find("Suelo");
+        if (suelo == null)
+        {
+            suelo = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            suelo.name = "Suelo";
+            suelo.transform.position = Vector3.zero;
+            suelo.transform.localScale = new Vector3(12f, 1f, 12f);
+        }
 
-        var suelo = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        suelo.name = "Suelo";
-        suelo.transform.position = Vector3.zero;
-        suelo.transform.localScale = new Vector3(20f, 1f, 20f);
-        var renderer = suelo.GetComponent<Renderer>();
-        renderer.material.color = new Color(0.35f, 0.35f, 0.32f);
+        AmbienteVisual.AplicarSuelo(suelo);
     }
 
     void AsegurarFabrica()
     {
-        if (GameObject.Find("Fabrica") != null)
+        var instance = GameObject.Find("Fabrica");
+        if (instance == null)
+        {
+            var model = ModelLoader.Load("Models/fabrica", "Assets/Resources/Models/fabrica.FBX");
+            if (model == null)
+                return;
+
+            instance = Instantiate(model);
+            instance.name = "Fabrica";
+            instance.transform.position = Vector3.zero;
+        }
+
+        ReconectarMateriales.En(instance);
+        AsegurarColisionFabrica(instance);
+    }
+
+    static void AsegurarColisionFabrica(GameObject fabrica)
+    {
+        if (fabrica == null)
             return;
 
-        var model = ModelLoader.Load("Models/fabrica", "Assets/Resources/Models/fabrica.FBX");
-        if (model == null)
-            return;
+        foreach (var filter in fabrica.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (filter.sharedMesh == null)
+                continue;
 
-        var instance = Instantiate(model);
-        instance.name = "Fabrica";
-        instance.transform.position = Vector3.zero;
+            var col = filter.GetComponent<MeshCollider>();
+            if (col == null)
+                col = filter.gameObject.AddComponent<MeshCollider>();
+
+            col.sharedMesh = filter.sharedMesh;
+            col.convex = false;
+            col.isTrigger = false;
+        }
+
+        foreach (var renderer in fabrica.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            var filter = renderer.GetComponent<MeshFilter>();
+            if (filter == null || filter.sharedMesh == null)
+                continue;
+            if (renderer.GetComponent<MeshCollider>() != null)
+                continue;
+
+            var col = renderer.gameObject.AddComponent<MeshCollider>();
+            col.sharedMesh = filter.sharedMesh;
+            col.convex = false;
+            col.isTrigger = false;
+        }
+
+        foreach (var col in fabrica.GetComponentsInChildren<Collider>(true))
+            col.isTrigger = false;
     }
 
     void AsegurarPuntosSiFaltan()
@@ -86,14 +130,14 @@ public class SpawnObjetos : MonoBehaviour
     void SpawnDucha()
     {
         var puntos = GameObject.FindGameObjectsWithTag("SpawnDucha");
-        var punto = puntos[Random.Range(0, puntos.Length)];
+        var punto = puntos[UnityEngine.Random.Range(0, puntos.Length)];
         Instanciar("Ducha", "Ducha", ducha, "Models/ducha", "Assets/Resources/Models/ducha.FBX", punto.transform.position, PrimitiveType.Cylinder, new Color(0.4f, 0.7f, 1f));
     }
 
     void SpawnPuerta()
     {
         var puntos = GameObject.FindGameObjectsWithTag("SpawnPuerta");
-        var punto = puntos[Random.Range(0, puntos.Length)];
+        var punto = puntos[UnityEngine.Random.Range(0, puntos.Length)];
         Instanciar("Puerta", "Puerta", puerta, "Models/puerta", "Assets/Resources/Models/puerta.FBX", punto.transform.position, PrimitiveType.Cube, new Color(0.55f, 0.35f, 0.15f));
     }
 
@@ -134,6 +178,7 @@ public class SpawnObjetos : MonoBehaviour
 
         go.name = name;
         go.tag = tag;
+        ReconectarMateriales.En(go);
         AsegurarTrigger(go);
         return go;
     }
