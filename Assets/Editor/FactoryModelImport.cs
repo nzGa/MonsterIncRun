@@ -146,24 +146,48 @@ public class FactoryModelImport : AssetPostprocessor
             return;
 
         var nombre = mat.name;
-        bool esPipe = nombre.IndexOf("pipe", StringComparison.OrdinalIgnoreCase) >= 0;
+        var metalTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/metal.jpg")
+            ?? AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Resources/Textures/metal.jpg");
+        var galv = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/corrugated_galvanized.png")
+            ?? AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Resources/Textures/corrugated_galvanized.png");
+
+        bool esPipe = nombre.IndexOf("pipe", StringComparison.OrdinalIgnoreCase) >= 0
+            || string.Equals(nombre, "fence", StringComparison.OrdinalIgnoreCase);
         bool esMetal = string.Equals(nombre, "metal", StringComparison.OrdinalIgnoreCase);
-        if (!esPipe && !esMetal)
+        bool esChim = nombre.IndexOf("chim", StringComparison.OrdinalIgnoreCase) >= 0
+            || nombre.IndexOf("roof", StringComparison.OrdinalIgnoreCase) >= 0;
+        bool esVidrio = nombre.IndexOf("glass", StringComparison.OrdinalIgnoreCase) >= 0
+            || nombre.IndexOf("window", StringComparison.OrdinalIgnoreCase) >= 0;
+        if (!esPipe && !esMetal && !esChim && !esVidrio)
             return;
 
-        var rust = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Resources/Textures/pipe_rust.png")
-            ?? AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/pipe_rust.png");
-        var metalTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/metal.jpg");
-        var tex = esPipe ? (rust ?? metalTex) : metalTex;
+        if (esVidrio)
+        {
+            var glassShader = Shader.Find("Legacy Shaders/Transparent/Diffuse")
+                ?? Shader.Find("Transparent/Diffuse")
+                ?? Shader.Find("Standard");
+            if (glassShader != null)
+                mat.shader = glassShader;
+            if (mat.HasProperty("_MainTex"))
+                mat.mainTexture = null;
+            if (mat.HasProperty("_Color"))
+                mat.color = new Color(0.38f, 0.78f, 0.88f, 0.38f);
+            EditorUtility.SetDirty(mat);
+            return;
+        }
+
+        var tex = esChim ? galv : metalTex;
         var std = Shader.Find("Standard");
-        if (esPipe && std != null)
+        if ((esPipe || esChim) && std != null)
             mat.shader = std;
 
         if (tex != null && mat.HasProperty("_MainTex"))
         {
             mat.mainTexture = tex;
             if (esPipe)
-                mat.mainTextureScale = new Vector2(6f, 3f);
+                mat.mainTextureScale = new Vector2(5f, 2.5f);
+            if (esChim)
+                mat.mainTextureScale = new Vector2(1.8f, 3.2f);
         }
 
         if (esPipe && mat.HasProperty("_Color"))
@@ -171,21 +195,26 @@ public class FactoryModelImport : AssetPostprocessor
                 ? new Color(0.96f, 0.97f, 1f)
                 : Color.white;
 
+        if (esChim && mat.HasProperty("_Color"))
+            mat.color = new Color(0.92f, 0.94f, 0.96f);
+
         if (esPipe && mat.HasProperty("_Metallic"))
-            mat.SetFloat("_Metallic", 0.74f);
+            mat.SetFloat("_Metallic", 0.58f);
 
         if (esPipe && mat.HasProperty("_Glossiness"))
-            mat.SetFloat("_Glossiness", 0.38f);
+            mat.SetFloat("_Glossiness", 0.42f);
 
         if (esPipe && mat.HasProperty("_Smoothness"))
-            mat.SetFloat("_Smoothness", 0.38f);
+            mat.SetFloat("_Smoothness", 0.42f);
 
-        if (esPipe && mat.HasProperty("_EmissionColor"))
-        {
-            mat.EnableKeyword("_EMISSION");
-            mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-            mat.SetColor("_EmissionColor", new Color(0.16f, 0.13f, 0.10f));
-        }
+        if (esChim && mat.HasProperty("_Metallic"))
+            mat.SetFloat("_Metallic", 0.72f);
+
+        if (esChim && mat.HasProperty("_Glossiness"))
+            mat.SetFloat("_Glossiness", 0.48f);
+
+        if (esChim && mat.HasProperty("_Smoothness"))
+            mat.SetFloat("_Smoothness", 0.48f);
 
         EditorUtility.SetDirty(mat);
     }

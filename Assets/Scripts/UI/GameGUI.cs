@@ -43,8 +43,6 @@ public class GameGUI : MonoBehaviour
     Image _veloFinal;
     Image _panelMensaje;
     Text _mensaje;
-    Text _nombre;
-    Text _nombreChip;
     Text _timer;
     Canvas _hud;
     string _textoMensaje;
@@ -83,7 +81,6 @@ public class GameGUI : MonoBehaviour
         if (_hud == null)
             ConstruirHud();
 
-        ActualizarNombre();
         ActualizarTimer();
         ActualizarInventario();
         ActualizarAvisosTiempo();
@@ -100,31 +97,13 @@ public class GameGUI : MonoBehaviour
             var canvas = canvases[i];
             if (canvas == null || canvas == _hud)
                 continue;
+            if (canvas.renderMode == RenderMode.WorldSpace)
+                continue;
             if (canvas.name == "TimerCanvas" || canvas.name == "HudCanvas")
                 Destroy(canvas.gameObject);
             else if (canvas.name == "MonsterHudCanvas" && canvas != _hud)
                 Destroy(canvas.gameObject);
         }
-    }
-
-    void ActualizarNombre()
-    {
-        var visible = NombreVisible();
-        if (_nombre != null)
-            _nombre.text = visible;
-        if (_nombreChip != null)
-            _nombreChip.text = visible;
-    }
-
-    static string NombreVisible()
-    {
-        if (GestionaMultiJugador.Instancia != null && !string.IsNullOrEmpty(GestionaMultiJugador.Instancia.nombreJugador))
-            return GestionaMultiJugador.Instancia.nombreJugador;
-
-        var nj = FindAnyObjectByType<NombreJugador>();
-        if (nj != null && !string.IsNullOrEmpty(nj.nombreJugador))
-            return nj.nombreJugador;
-        return "Mike";
     }
 
     void ActualizarTimer()
@@ -337,24 +316,6 @@ public class GameGUI : MonoBehaviour
         var canvas = _hud.transform;
 
         var barra = UiFactory.AddTopBar(canvas, "BarraSuperior", 96f, new Color(0.02f, 0.03f, 0.03f, 0.82f));
-
-        var chip = UiFactory.AddPanelFixed(canvas, "Jugador", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(18f, -10f), new Vector2(420f, 72f), new Color(0f, 0f, 0f, 0.94f));
-        var avatar = UiFactory.AddImageFixed(chip.transform, "Avatar", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(10f, 0f), new Vector2(56f, 56f), Color.white);
-        avatar.preserveAspect = true;
-        var texMike = UiFactory.LoadSprite("UI/icono_mike_sullivan");
-        if (texMike != null)
-            avatar.sprite = texMike;
-
-        _nombreChip = UiFactory.AddText(chip.transform, "NombreChip", "Mike", 40, TextAnchor.MiddleLeft, new Color(1f, 0.95f, 0.12f, 1f), true, FontStyle.Bold);
-        _nombreChip.rectTransform.anchorMin = Vector2.zero;
-        _nombreChip.rectTransform.anchorMax = Vector2.one;
-        _nombreChip.rectTransform.offsetMin = new Vector2(74f, 4f);
-        _nombreChip.rectTransform.offsetMax = new Vector2(-10f, -4f);
-        _nombreChip.horizontalOverflow = HorizontalWrapMode.Overflow;
-        _nombreChip.verticalOverflow = VerticalWrapMode.Overflow;
-        _nombreChip.resizeTextForBestFit = false;
-        UiFactory.AddOutline(_nombreChip, new Color(0f, 0f, 0f, 1f), new Vector2(2.4f, -2.4f));
-        _nombre = _nombreChip;
 
         var timerPanel = UiFactory.AddPanelFixed(barra.transform, "Timer", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(280f, 76f), new Color(0.06f, 0.09f, 0.06f, 0.95f));
 

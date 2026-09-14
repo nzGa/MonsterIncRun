@@ -12,7 +12,7 @@ public class ThirdPersonController : MonoBehaviour
 
     public float walkMaxAnimationSpeed = 1.2f;
     public float trotMaxAnimationSpeed = 1f;
-    public float runMaxAnimationSpeed = 1.35f;
+    public float runMaxAnimationSpeed = 2.25f;
     public float jumpAnimationSpeed = 1.15f;
     public float landAnimationSpeed = 1f;
     public float walkSpeed = 2f;
@@ -20,6 +20,8 @@ public class ThirdPersonController : MonoBehaviour
     public float runSpeed = 6f;
     const float WalkSpeedUnity4 = 2f;
     const float RunSpeedUnity4 = 6f;
+    const float RunAnimSpeed = 2.25f;
+    const float RunAnimSpeedZapato = 2.9f;
     public float inAirControlAcceleration = 3f;
     public float jumpHeight = 1.3f;
     public float gravity = 20f;
@@ -70,6 +72,7 @@ public class ThirdPersonController : MonoBehaviour
         AsignarClipsSiFaltan();
         walkSpeed = WalkSpeedUnity4;
         runSpeed = RunSpeedUnity4;
+        runMaxAnimationSpeed = RunAnimSpeed;
     }
 
     public void RecargarClips()
@@ -262,10 +265,13 @@ public class ThirdPersonController : MonoBehaviour
         if (ObjetosPorJugador.TieneZapato)
         {
             runSpeed = 10f;
-            runMaxAnimationSpeed = 1.8f;
+            runMaxAnimationSpeed = RunAnimSpeedZapato;
         }
         else
+        {
             runSpeed = RunSpeedUnity4;
+            runMaxAnimationSpeed = RunAnimSpeed;
+        }
 
         if (!isControllable)
             Input.ResetInputAxes();
@@ -289,6 +295,7 @@ public class ThirdPersonController : MonoBehaviour
 
         Animar(controller);
 
+        // Face the WASD move vector only. Mouse orbit never copies onto transform.forward.
         if (IsGrounded())
         {
             if (_wishPlanar.sqrMagnitude > 0.0001f)

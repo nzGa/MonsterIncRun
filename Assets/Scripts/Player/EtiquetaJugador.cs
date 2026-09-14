@@ -1,46 +1,60 @@
 ﻿using UnityEngine;
+using UnityEngine.UI;
 
 public class EtiquetaJugador : MonoBehaviour
 {
     public string nombreJugador;
-    TextMesh _label;
+    Text _label;
     Transform _billboard;
 
     void Start()
     {
-        var holder = new GameObject("NombreBillboard");
+        var holder = new GameObject("NombreChip");
         holder.transform.SetParent(transform, false);
 
-        float y = 2.55f;
+        float y = 2.18f;
         var rend = GetComponentInChildren<Renderer>();
         if (rend != null)
-            y = rend.bounds.max.y - transform.position.y + 0.5f;
+            y = rend.bounds.max.y - transform.position.y + 0.16f;
         holder.transform.localPosition = new Vector3(0f, y, 0f);
+        holder.transform.localScale = Vector3.one * 0.0046f;
 
-        var tm = holder.AddComponent<TextMesh>();
-        tm.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        if (tm.font == null)
-            tm.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-        if (tm.font == null)
-            tm.font = Font.CreateDynamicFontFromOSFont("Arial", 42);
-        tm.fontSize = 52;
-        tm.characterSize = 0.08f;
-        tm.anchor = TextAnchor.MiddleCenter;
-        tm.alignment = TextAlignment.Center;
-        tm.fontStyle = FontStyle.Bold;
-        tm.color = new Color(1f, 0.95f, 0.12f, 1f);
-        tm.text = NombreVisible();
+        var canvas = holder.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.sortingOrder = 40;
+        var rt = holder.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(120f, 28f);
+        rt.pivot = new Vector2(0.5f, 0f);
 
-        var mr = holder.GetComponent<MeshRenderer>();
-        if (mr != null)
-        {
-            if (tm.font != null && tm.font.material != null)
-                mr.sharedMaterial = tm.font.material;
-            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            mr.receiveShadows = false;
-        }
+        var chip = UiFactory.AddPanelFixed(
+            holder.transform,
+            "Fondo",
+            new Vector2(0.5f, 0.5f),
+            new Vector2(0.5f, 0.5f),
+            Vector2.zero,
+            new Vector2(118f, 26f),
+            new Color(0.05f, 0.07f, 0.07f, 0.82f));
 
-        _label = tm;
+        var text = UiFactory.AddText(
+            chip.transform,
+            "Nombre",
+            NombreVisible(),
+            16,
+            TextAnchor.MiddleCenter,
+            new Color(0.96f, 0.98f, 0.94f, 1f),
+            true,
+            FontStyle.Bold);
+        UiFactory.Stretch(text.rectTransform);
+        text.rectTransform.offsetMin = new Vector2(6f, 1f);
+        text.rectTransform.offsetMax = new Vector2(-6f, -1f);
+        text.horizontalOverflow = HorizontalWrapMode.Overflow;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
+        text.resizeTextForBestFit = true;
+        text.resizeTextMinSize = 11;
+        text.resizeTextMaxSize = 16;
+        UiFactory.AddOutline(text, new Color(0f, 0f, 0f, 0.7f), new Vector2(0.8f, -0.8f));
+
+        _label = text;
         _billboard = holder.transform;
     }
 
