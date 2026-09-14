@@ -37,6 +37,12 @@ public class LegacyMikeImport : AssetPostprocessor
             clip.name = clipName;
             clip.loopTime = loop;
             clip.wrapMode = loop ? WrapMode.Loop : WrapMode.Once;
+            clip.lockRootRotation = true;
+            clip.lockRootHeightY = true;
+            clip.lockRootPositionXZ = true;
+            clip.keepOriginalOrientation = true;
+            clip.keepOriginalPositionY = true;
+            clip.keepOriginalPositionXZ = false;
         }
         importer.clipAnimations = clips;
     }

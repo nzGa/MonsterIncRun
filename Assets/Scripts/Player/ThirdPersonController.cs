@@ -10,18 +10,18 @@ public class ThirdPersonController : MonoBehaviour
     public AnimationClip winAnimation;
     public AnimationClip loseAnimation;
 
-    public float walkMaxAnimationSpeed = 1.1f;
+    public float walkMaxAnimationSpeed = 1.2f;
     public float trotMaxAnimationSpeed = 1f;
-    public float runMaxAnimationSpeed = 3f;
-    public float jumpAnimationSpeed = 2f;
+    public float runMaxAnimationSpeed = 1.35f;
+    public float jumpAnimationSpeed = 1.15f;
     public float landAnimationSpeed = 1f;
-    public float walkSpeed = 4f;
+    public float walkSpeed = 2f;
     public float trotSpeed = 4f;
     public float runSpeed = 6f;
     public float inAirControlAcceleration = 3f;
     public float jumpHeight = 1.3f;
     public float gravity = 20f;
-    public float speedSmoothing = 1000f;
+    public float speedSmoothing = 10f;
     public float rotateSpeed = 500f;
     public float trotAfterSeconds = 100000f;
     public bool canJump = true;
@@ -246,7 +246,7 @@ public class ThirdPersonController : MonoBehaviour
         if (ObjetosPorJugador.TieneZapato)
         {
             runSpeed = 10f;
-            runMaxAnimationSpeed = 6f;
+            runMaxAnimationSpeed = 1.8f;
         }
 
         if (!isControllable)
@@ -333,7 +333,8 @@ public class ThirdPersonController : MonoBehaviour
         if (_characterState == CharacterState.Running && runAnimation != null)
         {
             var corre = Estado(runAnimation, "Corre");
-            _animation[corre].speed = Mathf.Clamp(vel, 0.8f, runMaxAnimationSpeed);
+            float rel = runSpeed > 0.05f ? vel / runSpeed : 1f;
+            _animation[corre].speed = Mathf.Clamp(rel * 1.2f, 0.9f, runMaxAnimationSpeed);
             _animation.CrossFade(corre);
             return;
         }
@@ -341,7 +342,8 @@ public class ThirdPersonController : MonoBehaviour
         if (caminando && walkAnimation != null)
         {
             var camina = Estado(walkAnimation, "Camina");
-            _animation[camina].speed = Mathf.Clamp(Mathf.Max(vel * 0.35f, 0.75f), 0.75f, walkMaxAnimationSpeed);
+            float rel = walkSpeed > 0.05f ? vel / walkSpeed : 1f;
+            _animation[camina].speed = Mathf.Clamp(rel * 1.15f, 0.9f, walkMaxAnimationSpeed);
             _animation.CrossFade(camina);
             return;
         }

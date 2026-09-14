@@ -86,13 +86,6 @@ public class GestionaMultiJugador : MonoBehaviour
     public void AplicarCursor()
     {
         bool capturar = QuiereCapturarCursor();
-        if (Application.isEditor)
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-            return;
-        }
-
         Cursor.lockState = capturar ? CursorLockMode.Locked : CursorLockMode.None;
         Cursor.visible = !capturar;
     }

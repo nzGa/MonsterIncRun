@@ -82,6 +82,7 @@ public static class ProjectBootstrap
         EnsurePlayModeStartScene();
         EnsureMaterialsBesideFbx();
         EnsurePipeMetalTextures();
+        EnsureFactoryAlbedos();
         ReimportMikeAsLegacy();
         EnsureUiSprites();
         EnsureEnvironmentAssets();
@@ -272,30 +273,36 @@ public static class ProjectBootstrap
                 dirty = true;
             }
 
-            if (esPipe && mat.HasProperty("_MainTex") && mat.mainTextureScale != new Vector2(2f, 2f))
+            if (esPipe && mat.HasProperty("_MainTex") && mat.mainTextureScale != new Vector2(4.5f, 2f))
             {
-                mat.mainTextureScale = new Vector2(2f, 2f);
+                mat.mainTextureScale = new Vector2(4.5f, 2f);
                 dirty = true;
             }
 
             var colorPipe = name == "pipe2"
-                ? new Color(0.76f, 0.77f, 0.80f)
-                : new Color(0.78f, 0.78f, 0.76f);
+                ? new Color(0.88f, 0.90f, 0.93f)
+                : new Color(0.92f, 0.91f, 0.88f);
             if (esPipe && mat.HasProperty("_Color") && mat.color != colorPipe)
             {
                 mat.color = colorPipe;
                 dirty = true;
             }
 
-            if (esPipe && mat.HasProperty("_Metallic") && !Mathf.Approximately(mat.GetFloat("_Metallic"), 0.28f))
+            if (esPipe && mat.HasProperty("_Metallic") && !Mathf.Approximately(mat.GetFloat("_Metallic"), 0.82f))
             {
-                mat.SetFloat("_Metallic", 0.28f);
+                mat.SetFloat("_Metallic", 0.82f);
                 dirty = true;
             }
 
-            if (esPipe && mat.HasProperty("_Glossiness") && !Mathf.Approximately(mat.GetFloat("_Glossiness"), 0.4f))
+            if (esPipe && mat.HasProperty("_Glossiness") && !Mathf.Approximately(mat.GetFloat("_Glossiness"), 0.58f))
             {
-                mat.SetFloat("_Glossiness", 0.4f);
+                mat.SetFloat("_Glossiness", 0.58f);
+                dirty = true;
+            }
+
+            if (esPipe && mat.HasProperty("_Smoothness") && !Mathf.Approximately(mat.GetFloat("_Smoothness"), 0.58f))
+            {
+                mat.SetFloat("_Smoothness", 0.58f);
                 dirty = true;
             }
 
@@ -303,7 +310,7 @@ public static class ProjectBootstrap
             {
                 mat.EnableKeyword("_EMISSION");
                 mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-                var emit = new Color(0.14f, 0.14f, 0.145f);
+                var emit = new Color(0.035f, 0.035f, 0.04f);
                 if (mat.GetColor("_EmissionColor") != emit)
                 {
                     mat.SetColor("_EmissionColor", emit);
@@ -314,6 +321,51 @@ public static class ProjectBootstrap
             if (dirty)
                 EditorUtility.SetDirty(mat);
         }
+    }
+
+    static void EnsureFactoryAlbedos()
+    {
+        AsignarAlbedo("walls", "Assets/Art/Textures/floor_concrete.jpg", new Vector2(6f, 6f), new Color(0.96f, 0.93f, 0.86f));
+        AsignarAlbedo("walltop", "Assets/Art/Textures/floor_concrete.jpg", new Vector2(5f, 5f), new Color(0.96f, 0.93f, 0.86f));
+        AsignarAlbedo("wallbase", "Assets/Art/Textures/Cliff (Layered Rock).jpg", new Vector2(4f, 4f), new Color(0.90f, 0.86f, 0.78f));
+        AsignarAlbedo("ground", "Assets/Art/Textures/floor_adoquin.jpg", new Vector2(12f, 12f), Color.white);
+        AsignarAlbedo("ground1", "Assets/Art/Textures/floor_hexagon.jpg", new Vector2(10f, 10f), Color.white);
+        AsignarAlbedo("ground3", "Assets/Art/Textures/floor_concrete.jpg", new Vector2(10f, 10f), Color.white);
+        AsignarAlbedo("Piso", "Assets/Art/Textures/floor_adoquin.jpg", new Vector2(12f, 12f), Color.white);
+        AsignarAlbedo("fence", "Assets/Art/Textures/metal.jpg", new Vector2(4.5f, 2f), new Color(0.85f, 0.85f, 0.86f));
+        AsignarAlbedo("madera", "Assets/Art/Textures/madera.GIF", new Vector2(2.5f, 2.5f), Color.white);
+        AsignarAlbedo("15_verti", "Assets/Art/Textures/floor_concrete.jpg", new Vector2(5f, 5f), new Color(0.94f, 0.92f, 0.86f));
+        AsignarAlbedo("roof1", "Assets/Art/Textures/Cliff (Layered Rock).jpg", new Vector2(4f, 4f), new Color(0.85f, 0.78f, 0.70f));
+        AsignarAlbedo("roof2", "Assets/Art/Textures/Cliff (Layered Rock).jpg", new Vector2(4f, 4f), new Color(0.80f, 0.72f, 0.64f));
+    }
+
+    static void AsignarAlbedo(string materialName, string texturePath, Vector2 tile, Color tint)
+    {
+        var path = Path.Combine(MaterialsFolder, materialName + ".mat").Replace('\\', '/');
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
+        if (mat == null || tex == null || !mat.HasProperty("_MainTex"))
+            return;
+
+        AmbienteVisual.RepararShader(mat);
+        bool dirty = false;
+        if (mat.mainTexture != tex)
+        {
+            mat.mainTexture = tex;
+            dirty = true;
+        }
+        if (mat.mainTextureScale != tile)
+        {
+            mat.mainTextureScale = tile;
+            dirty = true;
+        }
+        if (mat.HasProperty("_Color") && mat.color != tint)
+        {
+            mat.color = tint;
+            dirty = true;
+        }
+        if (dirty)
+            EditorUtility.SetDirty(mat);
     }
 
     static void EnsureFolder(string path)

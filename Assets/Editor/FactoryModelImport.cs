@@ -160,25 +160,28 @@ public class FactoryModelImport : AssetPostprocessor
         {
             mat.mainTexture = tex;
             if (esPipe)
-                mat.mainTextureScale = new Vector2(2f, 2f);
+                mat.mainTextureScale = new Vector2(4.5f, 2f);
         }
 
         if (esPipe && mat.HasProperty("_Color"))
             mat.color = nombre.IndexOf("pipe2", StringComparison.OrdinalIgnoreCase) >= 0
-                ? new Color(0.76f, 0.77f, 0.80f)
-                : new Color(0.78f, 0.78f, 0.76f);
+                ? new Color(0.88f, 0.90f, 0.93f)
+                : new Color(0.92f, 0.91f, 0.88f);
 
         if (esPipe && mat.HasProperty("_Metallic"))
-            mat.SetFloat("_Metallic", 0.28f);
+            mat.SetFloat("_Metallic", 0.82f);
 
         if (esPipe && mat.HasProperty("_Glossiness"))
-            mat.SetFloat("_Glossiness", 0.4f);
+            mat.SetFloat("_Glossiness", 0.58f);
+
+        if (esPipe && mat.HasProperty("_Smoothness"))
+            mat.SetFloat("_Smoothness", 0.58f);
 
         if (esPipe && mat.HasProperty("_EmissionColor"))
         {
             mat.EnableKeyword("_EMISSION");
             mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-            mat.SetColor("_EmissionColor", new Color(0.14f, 0.14f, 0.145f));
+            mat.SetColor("_EmissionColor", new Color(0.035f, 0.035f, 0.04f));
         }
 
         EditorUtility.SetDirty(mat);
