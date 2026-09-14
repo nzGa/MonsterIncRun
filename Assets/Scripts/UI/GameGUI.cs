@@ -282,7 +282,7 @@ public class GameGUI : MonoBehaviour
         if (_imgPerdiste != null)
             _imgPerdiste.enabled = perdio;
         if (_veloFinal != null)
-            _veloFinal.enabled = gano || perdio;
+            _veloFinal.enabled = false;
     }
 
     void LimpiarFlags()
@@ -343,13 +343,20 @@ public class GameGUI : MonoBehaviour
         _veloFinal = UiFactory.AddImage(canvas, "VeloFinal", Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.42f));
         _veloFinal.enabled = false;
 
-        _imgGanaste = Banner(canvas, "Ganaste", "UI/ganaste");
-        _imgPerdiste = Banner(canvas, "Perdiste", "UI/perdiste");
+        _imgGanaste = BannerEsquina(canvas, "Ganaste", "UI/ganaste");
+        _imgPerdiste = BannerEsquina(canvas, "Perdiste", "UI/perdiste");
     }
 
-    static Image Banner(Transform parent, string name, string resource)
+    static Image BannerEsquina(Transform parent, string name, string resource)
     {
-        var img = UiFactory.AddImage(parent, name, new Vector2(0.28f, 0.32f), new Vector2(0.72f, 0.78f), Color.white);
+        var img = UiFactory.AddImageFixed(
+            parent,
+            name,
+            new Vector2(1f, 0f),
+            new Vector2(1f, 0f),
+            new Vector2(-24f, 24f),
+            new Vector2(300f, 340f),
+            Color.white);
         img.preserveAspect = true;
         img.sprite = UiFactory.LoadSprite(resource);
         img.enabled = false;
