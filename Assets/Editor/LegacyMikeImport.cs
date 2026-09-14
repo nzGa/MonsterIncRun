@@ -87,6 +87,7 @@ public class LegacyMikeImport : AssetPostprocessor
         }
 
         ReconectarMateriales.EnMike(root);
+        AmbienteVisual.AsignarPupila(root);
 
         var clipName = NombreClip(assetPath);
         var anim = root.GetComponent<Animation>() ?? root.GetComponentInChildren<Animation>();
