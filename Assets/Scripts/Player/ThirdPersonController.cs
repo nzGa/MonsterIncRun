@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class ThirdPersonController : MonoBehaviour
@@ -9,12 +10,12 @@ public class ThirdPersonController : MonoBehaviour
     public AnimationClip winAnimation;
     public AnimationClip loseAnimation;
 
-    public float walkMaxAnimationSpeed = 10f;
+    public float walkMaxAnimationSpeed = 1.1f;
     public float trotMaxAnimationSpeed = 1f;
     public float runMaxAnimationSpeed = 3f;
     public float jumpAnimationSpeed = 2f;
     public float landAnimationSpeed = 1f;
-    public float walkSpeed = 2f;
+    public float walkSpeed = 4f;
     public float trotSpeed = 4f;
     public float runSpeed = 6f;
     public float inAirControlAcceleration = 3f;
@@ -66,6 +67,19 @@ public class ThirdPersonController : MonoBehaviour
         AsignarClipsSiFaltan();
     }
 
+    public void RecargarClips()
+    {
+        if (_animation == null)
+            _animation = GetComponent<Animation>() ?? GetComponentInChildren<Animation>();
+        idleAnimation = null;
+        walkAnimation = null;
+        runAnimation = null;
+        jumpPoseAnimation = null;
+        winAnimation = null;
+        loseAnimation = null;
+        AsignarClipsSiFaltan();
+    }
+
     void Start()
     {
         var controller = GetComponent<CharacterController>();
@@ -87,12 +101,29 @@ public class ThirdPersonController : MonoBehaviour
 
     AnimationClip Clip(string name)
     {
+        if (_animation == null)
+            return null;
+
+        var exact = _animation.GetClip(name);
+        if (exact != null)
+            return exact;
+
+        AnimationClip first = null;
         foreach (AnimationState state in _animation)
         {
-            if (state.clip != null && state.clip.name == name)
+            if (state.clip == null)
+                continue;
+            if (first == null)
+                first = state.clip;
+            if (string.Equals(state.clip.name, name, StringComparison.OrdinalIgnoreCase))
+                return state.clip;
+            if (state.clip.name.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0)
                 return state.clip;
         }
-        return _animation.GetClip(name);
+
+        if (name.Equals("Espera", StringComparison.OrdinalIgnoreCase))
+            return first;
+        return null;
     }
 
     void UpdateSmoothedMovementDirection()
@@ -146,7 +177,7 @@ public class ThirdPersonController : MonoBehaviour
                 targetSpeed *= trotSpeed;
                 _characterState = CharacterState.Trotting;
             }
-            else if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.D))
+            else if (isMoving)
             {
                 targetSpeed *= walkSpeed;
                 _characterState = CharacterState.Walking;
@@ -209,7 +240,7 @@ public class ThirdPersonController : MonoBehaviour
 
     void Update()
     {
-        if (Cursor.lockState != CursorLockMode.Locked)
+        if (!GestionaMultiJugador.ControlJugadorActivo)
             return;
 
         if (ObjetosPorJugador.TieneZapato)
@@ -267,7 +298,7 @@ public class ThirdPersonController : MonoBehaviour
         if (ObjetosPorJugador.JugadorHaGanado)
         {
             if (winAnimation != null)
-                _animation.CrossFade(winAnimation.name);
+                _animation.CrossFade(Estado(winAnimation, "Gana"));
             if (!_anuncioFinal)
             {
                 _anuncioFinal = true;
@@ -281,35 +312,61 @@ public class ThirdPersonController : MonoBehaviour
         if (ObjetosPorJugador.JugadorHaPerdido)
         {
             if (loseAnimation != null)
-                _animation.CrossFade(loseAnimation.name);
+                _animation.CrossFade(Estado(loseAnimation, "Pierde"));
             return;
         }
 
         if (_characterState == CharacterState.Jumping && jumpPoseAnimation != null)
         {
-            _animation[jumpPoseAnimation.name].speed = jumpingReachedApex ? -landAnimationSpeed : jumpAnimationSpeed;
-            _animation[jumpPoseAnimation.name].wrapMode = WrapMode.ClampForever;
-            _animation.CrossFade(jumpPoseAnimation.name);
+            var salta = Estado(jumpPoseAnimation, "Salta");
+            _animation[salta].speed = jumpingReachedApex ? -landAnimationSpeed : jumpAnimationSpeed;
+            _animation[salta].wrapMode = WrapMode.ClampForever;
+            _animation.CrossFade(salta);
             return;
         }
 
-        if (controller == null || controller.velocity.sqrMagnitude < 0.1f)
-        {
-            if (idleAnimation != null)
-                _animation.CrossFade(idleAnimation.name);
-            return;
-        }
+        bool caminando = _characterState == CharacterState.Walking
+            || _characterState == CharacterState.Trotting
+            || isMoving;
+        float vel = controller != null ? controller.velocity.magnitude : moveSpeed;
 
         if (_characterState == CharacterState.Running && runAnimation != null)
         {
-            _animation[runAnimation.name].speed = Mathf.Clamp(controller.velocity.magnitude, 0f, runMaxAnimationSpeed);
-            _animation.CrossFade(runAnimation.name);
+            var corre = Estado(runAnimation, "Corre");
+            _animation[corre].speed = Mathf.Clamp(vel, 0.8f, runMaxAnimationSpeed);
+            _animation.CrossFade(corre);
+            return;
         }
-        else if (walkAnimation != null)
+
+        if (caminando && walkAnimation != null)
         {
-            _animation[walkAnimation.name].speed = Mathf.Clamp(controller.velocity.magnitude, 0f, walkMaxAnimationSpeed);
-            _animation.CrossFade(walkAnimation.name);
+            var camina = Estado(walkAnimation, "Camina");
+            _animation[camina].speed = Mathf.Clamp(Mathf.Max(vel * 0.35f, 0.75f), 0.75f, walkMaxAnimationSpeed);
+            _animation.CrossFade(camina);
+            return;
         }
+
+        if (idleAnimation != null)
+            _animation.CrossFade(Estado(idleAnimation, "Espera"));
+    }
+
+    string Estado(AnimationClip clip, string alias)
+    {
+        if (_animation == null)
+            return alias;
+        if (!string.IsNullOrEmpty(alias) && _animation.GetClip(alias) != null)
+            return alias;
+        if (clip != null && _animation.GetClip(clip.name) != null)
+            return clip.name;
+        if (clip != null)
+        {
+            foreach (AnimationState state in _animation)
+            {
+                if (state.clip == clip)
+                    return state.name;
+            }
+        }
+        return clip != null ? clip.name : alias;
     }
 
     public float GetSpeed() { return moveSpeed; }

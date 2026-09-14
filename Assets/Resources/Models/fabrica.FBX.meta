@@ -1,101 +1,242 @@
 fileFormatVersion: 2
 guid: 2eaa23da89bb9ff40a0b5050fe4d3b46
 ModelImporter:
-  serializedVersion: 16
-  fileIDToRecycleName:
-    100000: //RootNode
-    100002: Non_subD
-    100004: Non_subD_MeshPart0
-    100006: Non_subD_MeshPart1
-    100008: Non_subD_MeshPart2
-    100010: Non_subD_MeshPart3
-    100012: Non_subD_MeshPart4
-    100014: subD
-    100016: subD_MeshPart0
-    100018: subD_MeshPart1
-    400000: //RootNode
-    400002: Non_subD
-    400004: Non_subD_MeshPart0
-    400006: Non_subD_MeshPart1
-    400008: Non_subD_MeshPart2
-    400010: Non_subD_MeshPart3
-    400012: Non_subD_MeshPart4
-    400014: subD
-    400016: subD_MeshPart0
-    400018: subD_MeshPart1
-    2300000: Non_subD_MeshPart0
-    2300002: Non_subD_MeshPart1
-    2300004: Non_subD_MeshPart2
-    2300006: Non_subD_MeshPart3
-    2300008: Non_subD_MeshPart4
-    2300010: subD_MeshPart0
-    2300012: subD_MeshPart1
-    3300000: Non_subD_MeshPart0
-    3300002: Non_subD_MeshPart1
-    3300004: Non_subD_MeshPart2
-    3300006: Non_subD_MeshPart3
-    3300008: Non_subD_MeshPart4
-    3300010: subD_MeshPart0
-    3300012: subD_MeshPart1
-    4300000: subD_MeshPart0
-    4300002: subD_MeshPart1
-    4300004: Non_subD_MeshPart0
-    4300006: Non_subD_MeshPart1
-    4300008: Non_subD_MeshPart2
-    4300010: Non_subD_MeshPart3
-    4300012: Non_subD_MeshPart4
-    9500000: //RootNode
+  serializedVersion: 24600
+  internalIDToNameTable:
+  - first:
+      1: 100000
+    second: //RootNode
+  - first:
+      1: 100002
+    second: Non_subD
+  - first:
+      1: 100004
+    second: Non_subD_MeshPart0
+  - first:
+      1: 100006
+    second: Non_subD_MeshPart1
+  - first:
+      1: 100008
+    second: Non_subD_MeshPart2
+  - first:
+      1: 100010
+    second: Non_subD_MeshPart3
+  - first:
+      1: 100012
+    second: Non_subD_MeshPart4
+  - first:
+      1: 100014
+    second: subD
+  - first:
+      1: 100016
+    second: subD_MeshPart0
+  - first:
+      1: 100018
+    second: subD_MeshPart1
+  - first:
+      4: 400000
+    second: //RootNode
+  - first:
+      4: 400002
+    second: Non_subD
+  - first:
+      4: 400004
+    second: Non_subD_MeshPart0
+  - first:
+      4: 400006
+    second: Non_subD_MeshPart1
+  - first:
+      4: 400008
+    second: Non_subD_MeshPart2
+  - first:
+      4: 400010
+    second: Non_subD_MeshPart3
+  - first:
+      4: 400012
+    second: Non_subD_MeshPart4
+  - first:
+      4: 400014
+    second: subD
+  - first:
+      4: 400016
+    second: subD_MeshPart0
+  - first:
+      4: 400018
+    second: subD_MeshPart1
+  - first:
+      23: 2300000
+    second: Non_subD_MeshPart0
+  - first:
+      23: 2300002
+    second: Non_subD_MeshPart1
+  - first:
+      23: 2300004
+    second: Non_subD_MeshPart2
+  - first:
+      23: 2300006
+    second: Non_subD_MeshPart3
+  - first:
+      23: 2300008
+    second: Non_subD_MeshPart4
+  - first:
+      23: 2300010
+    second: subD_MeshPart0
+  - first:
+      23: 2300012
+    second: subD_MeshPart1
+  - first:
+      33: 3300000
+    second: Non_subD_MeshPart0
+  - first:
+      33: 3300002
+    second: Non_subD_MeshPart1
+  - first:
+      33: 3300004
+    second: Non_subD_MeshPart2
+  - first:
+      33: 3300006
+    second: Non_subD_MeshPart3
+  - first:
+      33: 3300008
+    second: Non_subD_MeshPart4
+  - first:
+      33: 3300010
+    second: subD_MeshPart0
+  - first:
+      33: 3300012
+    second: subD_MeshPart1
+  - first:
+      43: 4300000
+    second: subD_MeshPart0
+  - first:
+      43: 4300002
+    second: subD_MeshPart1
+  - first:
+      43: 4300004
+    second: Non_subD_MeshPart0
+  - first:
+      43: 4300006
+    second: Non_subD_MeshPart1
+  - first:
+      43: 4300008
+    second: Non_subD_MeshPart2
+  - first:
+      43: 4300010
+    second: Non_subD_MeshPart3
+  - first:
+      43: 4300012
+    second: Non_subD_MeshPart4
+  - first:
+      95: 9500000
+    second: //RootNode
+  externalObjects: {}
   materials:
-    importMaterials: 1
-    materialName: 0
-    materialSearch: 1
+    materialImportMode: 1
+    materialName: 1
+    materialSearch: 0
+    materialLocation: 1
+    searchTexturesGlobally: 0
   animations:
     legacyGenerateAnimations: 4
     bakeSimulation: 0
+    resampleCurves: 1
     optimizeGameObjects: 0
+    removeConstantScaleCurves: 0
     motionNodeName: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
     animationCompression: 1
-    animationRotationError: .5
-    animationPositionError: .5
-    animationScaleError: .5
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
     animationWrapMode: 0
     extraExposedTransformPaths: []
+    extraUserProperties: []
     clipAnimations: []
     isReadable: 1
   meshes:
     lODScreenPercentages: []
-    globalScale: .00999999978
+    globalScale: 0.01
     meshCompression: 0
     addColliders: 0
+    useSRGBMaterialColor: 1
+    sortHierarchyByName: 1
+    preBakeConvexCollisionMesh: 0
+    preBakeTriangleCollisionMesh: 0
+    importPhysicalCameras: 0
+    importVisibility: 0
     importBlendShapes: 1
+    importCameras: 0
+    importLights: 0
+    nodeNameCollisionStrategy: 0
+    fileIdsGeneration: 1
     swapUVChannels: 0
     generateSecondaryUV: 0
     useFileUnits: 1
-    optimizeMeshForGPU: 1
+    keepQuads: 0
     weldVertices: 1
+    bakeAxisConversion: 0
+    preserveHierarchy: 0
+    skinWeightsMode: 0
+    maxBonesPerVertex: 4
+    minBoneWeight: 0.001
+    optimizeBones: 1
+    generateMeshLods: 0
+    meshLodGenerationFlags: 0
+    maximumMeshLod: -1
+    importUVs: -1
+    importVertexColors: 1
+    meshOptimizationFlags: -1
+    indexFormat: 1
     secondaryUVAngleDistortion: 8
     secondaryUVAreaDistortion: 15.000001
     secondaryUVHardAngle: 88
+    secondaryUVMarginMethod: 0
+    secondaryUVMinLightmapResolution: 40
+    secondaryUVMinObjectScale: 1
     secondaryUVPackMargin: 4
+    useFileScale: 0
+    strictVertexDataChecks: 0
   tangentSpace:
     normalSmoothAngle: 60
-    splitTangentsAcrossUV: 1
     normalImportMode: 0
-    tangentImportMode: 1
+    tangentImportMode: 4
+    normalCalculationMode: 0
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 1
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+    calculateBlendshapeNormalsDeltaFromImportedNormals: 1
+  referencedClips: []
   importAnimation: 1
-  copyAvatar: 0
   humanDescription:
+    serializedVersion: 3
     human: []
     skeleton: []
-    armTwist: .5
-    foreArmTwist: .5
-    upperLegTwist: .5
-    legTwist: .5
-    armStretch: .0500000007
-    legStretch: .0500000007
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
     feetSpacing: 0
+    globalScale: 0.01
     rootMotionBoneName: 
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 0
   lastHumanDescriptionAvatarSource: {instanceID: 0}
+  autoGenerateAvatarMappingIfUnspecified: 1
   animationType: 2
+  humanoidOversampling: 1
+  avatarSetup: 1
+  addHumanoidExtraRootOnlyWhenUsingAvatar: 0
+  importBlendShapeDeformPercent: 0
+  remapMaterialsIfMaterialImportModeIsNone: 1
   additionalBone: 0
   userData: 
+  assetBundleName: 
+  assetBundleVariant: 
