@@ -5,11 +5,11 @@ using UnityEngine;
 public static class ReconectarMateriales
 {
     static readonly Color VerdePiel = new Color(0.50f, 0.78f, 0.15f);
-    static readonly Color ColorPipe1 = new Color(0.92f, 0.91f, 0.88f);
-    static readonly Color ColorPipe2 = new Color(0.88f, 0.90f, 0.93f);
-    static readonly Color EmisionPipe = new Color(0.035f, 0.035f, 0.04f);
-    const float MetalicoPipe = 0.82f;
-    const float BrilloPipe = 0.58f;
+    static readonly Color ColorPipe1 = Color.white;
+    static readonly Color ColorPipe2 = new Color(0.96f, 0.97f, 1f);
+    static readonly Color EmisionPipe = new Color(0.16f, 0.13f, 0.10f);
+    const float MetalicoPipe = 0.74f;
+    const float BrilloPipe = 0.38f;
 
     // FBX ByPolygon / connection order on the skinned "Mike" mesh.
     static readonly string[] SlotsMikePorIndice =
@@ -43,7 +43,8 @@ public static class ReconectarMateriales
             {
                 var actual = shared[i];
                 var reemplazo = BuscarReemplazo(catalogo, actual, renderer);
-                if (EsTuberia(actual, renderer) || PareceRielOscuro(actual, renderer))
+                if (EsPipeNombrado(renderer) || Contiene(NombreMaterial(actual), "pipe")
+                    || PareceTuboPorMalla(renderer))
                 {
                     var forzado = MaterialTuberia(EsPipe2(actual, renderer));
                     if (forzado != null)
@@ -67,6 +68,8 @@ public static class ReconectarMateriales
             if (changed)
                 renderer.sharedMaterials = shared;
         }
+
+        ForzarPipesEnFabrica(root);
     }
 
     public static void EnMike(GameObject root)
@@ -602,13 +605,12 @@ public static class ReconectarMateriales
 
     static bool EsNombreTuberia(string nombre)
     {
-        if (string.IsNullOrEmpty(nombre))
-            return false;
-        if (Contiene(nombre, "pipe"))
-            return true;
-        return string.Equals(nombre, "metal", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(nombre, "fence", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(nombre, "chim", StringComparison.OrdinalIgnoreCase);
+        return Contiene(nombre, "pipe");
+    }
+
+    static bool EsPipeNombrado(Renderer renderer)
+    {
+        return renderer != null && NombreEnJerarquia(renderer.transform, "pipe");
     }
 
     static bool NombreEnJerarquia(Transform t, string needle)
@@ -631,11 +633,41 @@ public static class ReconectarMateriales
     {
         if (EsNombreTuberia(NombreMaterial(material)))
             return true;
-        if (renderer != null && (NombreEnJerarquia(renderer.transform, "pipe")
-            || NombreEnJerarquia(renderer.transform, "fence")
-            || NombreEnJerarquia(renderer.transform, "chim")))
+        if (EsPipeNombrado(renderer))
             return true;
         return PareceTuboPorMalla(renderer);
+    }
+
+    static void ForzarPipesEnFabrica(GameObject root)
+    {
+        if (root == null)
+            return;
+
+        foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer == null || renderer is ParticleSystemRenderer || renderer.GetComponent<TextMesh>() != null)
+                continue;
+            if (!EsTuberia(renderer.sharedMaterial, renderer))
+                continue;
+
+            var mat = MaterialTuberia(EsPipe2(renderer.sharedMaterial, renderer));
+            if (mat == null)
+                continue;
+
+            PintarTuberia(mat, EsPipe2(renderer.sharedMaterial, renderer) ? ColorPipe2 : ColorPipe1);
+
+            var shared = renderer.sharedMaterials;
+            if (shared == null || shared.Length == 0)
+            {
+                renderer.sharedMaterial = mat;
+                continue;
+            }
+
+            var siguiente = new Material[shared.Length];
+            for (int i = 0; i < shared.Length; i++)
+                siguiente[i] = mat;
+            renderer.sharedMaterials = siguiente;
+        }
     }
 
     static bool EsPipe2(Material material, Renderer renderer)
@@ -723,6 +755,23 @@ public static class ReconectarMateriales
         return _texMetal;
     }
 
+    static Texture _texOxido;
+
+    static Texture TexturaOxido()
+    {
+        if (_texOxido != null)
+            return _texOxido;
+
+        _texOxido = CargarTex("Textures/pipe_rust",
+            "Assets/Art/Textures/pipe_rust.png",
+            "Assets/Resources/Textures/pipe_rust.png");
+        if (_texOxido != null)
+            return _texOxido;
+
+        _texOxido = TexturaMetal();
+        return _texOxido;
+    }
+
     static void PintarTuberia(Material material, Color color)
     {
         if (material == null)
@@ -734,16 +783,16 @@ public static class ReconectarMateriales
             || material.shader.name.IndexOf("Standard", StringComparison.OrdinalIgnoreCase) < 0))
             material.shader = shader;
 
-        var tex = TexturaMetal();
+        var tex = TexturaOxido();
         if (tex != null && material.HasProperty("_MainTex"))
         {
             tex.wrapMode = TextureWrapMode.Repeat;
             material.mainTexture = tex;
-            material.mainTextureScale = new Vector2(4.5f, 2f);
+            material.mainTextureScale = new Vector2(6f, 3f);
         }
 
         if (material.HasProperty("_Color"))
-            material.color = color;
+            material.color = color.maxColorComponent < 0.5f ? Color.white : color;
         if (material.HasProperty("_Metallic"))
             material.SetFloat("_Metallic", MetalicoPipe);
         if (material.HasProperty("_Glossiness"))
@@ -917,12 +966,24 @@ public static class ReconectarMateriales
             return true;
         }
 
-        if (material.HasProperty("_Metallic"))
-            material.SetFloat("_Metallic", 0f);
-        if (material.HasProperty("_Glossiness"))
-            material.SetFloat("_Glossiness", 0.18f);
-        if (material.HasProperty("_Smoothness"))
-            material.SetFloat("_Smoothness", 0.18f);
+        if (rol == RolTextura.BasePared || rol == RolTextura.Chapa)
+        {
+            if (material.HasProperty("_Metallic"))
+                material.SetFloat("_Metallic", 0.42f);
+            if (material.HasProperty("_Glossiness"))
+                material.SetFloat("_Glossiness", 0.30f);
+            if (material.HasProperty("_Smoothness"))
+                material.SetFloat("_Smoothness", 0.30f);
+        }
+        else
+        {
+            if (material.HasProperty("_Metallic"))
+                material.SetFloat("_Metallic", 0f);
+            if (material.HasProperty("_Glossiness"))
+                material.SetFloat("_Glossiness", 0.18f);
+            if (material.HasProperty("_Smoothness"))
+                material.SetFloat("_Smoothness", 0.18f);
+        }
 
         return anterior != tex
             || scaleAntes != material.mainTextureScale
@@ -936,7 +997,8 @@ public static class ReconectarMateriales
         Pared,
         BasePared,
         Madera,
-        Metal
+        Metal,
+        Chapa
     }
 
     static bool EsVidrio(string nombre)
@@ -949,14 +1011,15 @@ public static class ReconectarMateriales
         var nombre = NombreMaterial(material);
         var nodo = renderer != null ? renderer.gameObject.name : null;
 
-        if (EsNombreTuberia(nombre) || Contiene(nodo, "pipe") || Contiene(nodo, "fence") || Contiene(nodo, "chim"))
+        if (EsNombreTuberia(nombre) || Contiene(nodo, "pipe") || PareceTuboPorMalla(renderer))
             return RolTextura.Metal;
-        if (PareceTuboPorMalla(renderer))
-            return RolTextura.Metal;
+        if (Contiene(nodo, "fence") || Contiene(nodo, "chim")
+            || Contiene(nombre, "fence") || Contiene(nombre, "chim") || Contiene(nombre, "metal"))
+            return RolTextura.Chapa;
 
         if (Contiene(nombre, "madera") || Contiene(nombre, "wood") || Contiene(nombre, "Puerta"))
             return RolTextura.Madera;
-        if (Contiene(nombre, "wallbase") || Contiene(nombre, "roof"))
+        if (Contiene(nombre, "wallbase") || Contiene(nombre, "walltop") || Contiene(nombre, "roof"))
             return RolTextura.BasePared;
         if (Contiene(nombre, "wall") || Contiene(nombre, "15_verti") || Contiene(nombre, "7cd"))
             return RolTextura.Pared;
@@ -986,13 +1049,15 @@ public static class ReconectarMateriales
             case RolTextura.Piso:
                 return TexAdoquin() ?? TexHexagon() ?? TexConcrete();
             case RolTextura.Pared:
-                return TexConcrete() ?? TexHexagon() ?? TexCliff();
+                return TexConcrete() ?? TexHexagon() ?? TexturaMetal();
             case RolTextura.BasePared:
-                return TexCliff() ?? TexConcrete();
+                return TexturaMetal() ?? TexConcrete();
             case RolTextura.Madera:
-                return TexMadera() ?? TexCliff();
+                return TexMadera() ?? TexConcrete();
             case RolTextura.Metal:
-                return TexturaMetal();
+                return TexturaOxido() ?? TexturaMetal();
+            case RolTextura.Chapa:
+                return TexturaMetal() ?? TexConcrete();
             default:
                 return null;
         }
@@ -1007,12 +1072,14 @@ public static class ReconectarMateriales
             case RolTextura.Piso:
                 return Vector2.one * Mathf.Clamp(span * 0.35f, 8f, 18f);
             case RolTextura.Pared:
-                return Vector2.one * Mathf.Clamp(span * 0.22f, 4f, 10f);
+                return Vector2.one * Mathf.Clamp(span * 0.55f, 14f, 24f);
             case RolTextura.BasePared:
-                return Vector2.one * Mathf.Clamp(span * 0.18f, 3f, 8f);
+                return Vector2.one * Mathf.Clamp(span * 0.42f, 10f, 18f);
             case RolTextura.Madera:
                 return new Vector2(2.5f, 2.5f);
             case RolTextura.Metal:
+                return new Vector2(6f, 3f);
+            case RolTextura.Chapa:
                 return new Vector2(4.5f, 2f);
             default:
                 return Vector2.one;
@@ -1026,11 +1093,13 @@ public static class ReconectarMateriales
             case RolTextura.Piso:
                 return Color.white;
             case RolTextura.Pared:
-                return new Color(0.96f, 0.93f, 0.86f);
+                return new Color(0.82f, 0.84f, 0.86f);
             case RolTextura.BasePared:
-                return new Color(0.90f, 0.86f, 0.78f);
+                return new Color(0.78f, 0.80f, 0.83f);
             case RolTextura.Madera:
                 return Color.white;
+            case RolTextura.Chapa:
+                return new Color(0.85f, 0.85f, 0.86f);
             default:
                 return actual.maxColorComponent < 0.35f ? Color.white : actual;
         }

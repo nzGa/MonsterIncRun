@@ -1,42 +1,66 @@
 ﻿using UnityEngine;
-using UnityEngine.UI;
 
 public class EtiquetaJugador : MonoBehaviour
 {
     public string nombreJugador;
-    Text _label;
+    TextMesh _label;
     Transform _billboard;
 
     void Start()
     {
-        var holder = new GameObject("NombreCanvas");
+        var holder = new GameObject("NombreBillboard");
         holder.transform.SetParent(transform, false);
-        holder.transform.localPosition = new Vector3(0f, 2.85f, 0f);
-        holder.transform.localScale = Vector3.one * 0.014f;
 
-        var canvas = holder.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.WorldSpace;
-        canvas.sortingOrder = 50;
+        float y = 2.55f;
+        var rend = GetComponentInChildren<Renderer>();
+        if (rend != null)
+            y = rend.bounds.max.y - transform.position.y + 0.5f;
+        holder.transform.localPosition = new Vector3(0f, y, 0f);
 
-        var rt = holder.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(280f, 48f);
+        var tm = holder.AddComponent<TextMesh>();
+        tm.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (tm.font == null)
+            tm.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        if (tm.font == null)
+            tm.font = Font.CreateDynamicFontFromOSFont("Arial", 42);
+        tm.fontSize = 52;
+        tm.characterSize = 0.08f;
+        tm.anchor = TextAnchor.MiddleCenter;
+        tm.alignment = TextAlignment.Center;
+        tm.fontStyle = FontStyle.Bold;
+        tm.color = new Color(1f, 0.95f, 0.12f, 1f);
+        tm.text = NombreVisible();
 
-        var fondo = UiFactory.AddPanel(holder.transform, "Fondo", Vector2.zero, Vector2.one, new Color(0.05f, 0.07f, 0.06f, 0.82f));
-        UiFactory.Stretch(fondo.rectTransform);
+        var mr = holder.GetComponent<MeshRenderer>();
+        if (mr != null)
+        {
+            if (tm.font != null && tm.font.material != null)
+                mr.sharedMaterial = tm.font.material;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+        }
 
-        _label = UiFactory.AddText(holder.transform, "Nombre", nombreJugador, 34, TextAnchor.MiddleCenter, Color.white, true, FontStyle.Bold);
-        UiFactory.Stretch(_label.rectTransform);
+        _label = tm;
         _billboard = holder.transform;
     }
 
     void LateUpdate()
     {
         if (_label != null)
-            _label.text = string.IsNullOrEmpty(nombreJugador) ? "Mike" : nombreJugador;
+            _label.text = NombreVisible();
 
         if (_billboard == null || Camera.main == null)
             return;
 
         _billboard.rotation = Camera.main.transform.rotation;
+    }
+
+    string NombreVisible()
+    {
+        if (!string.IsNullOrEmpty(nombreJugador))
+            return nombreJugador;
+        if (GestionaMultiJugador.Instancia != null && !string.IsNullOrEmpty(GestionaMultiJugador.Instancia.nombreJugador))
+            return GestionaMultiJugador.Instancia.nombreJugador;
+        return "Mike";
     }
 }
