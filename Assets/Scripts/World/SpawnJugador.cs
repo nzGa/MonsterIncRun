@@ -37,13 +37,13 @@ public class SpawnJugador : MonoBehaviour
         player.name = "Mike";
         player.tag = "Player";
 
-        if (player.GetComponent<CharacterController>() == null)
-        {
-            var cc = player.AddComponent<CharacterController>();
-            cc.height = 2f;
-            cc.center = new Vector3(0, 1f, 0);
-            cc.radius = 0.4f;
-        }
+        if (!player.TryGetComponent(out CharacterController cc))
+            cc = player.AddComponent<CharacterController>();
+        cc.height = 2f;
+        cc.center = new Vector3(0, 1f, 0);
+        cc.radius = 0.4f;
+        cc.detectCollisions = true;
+        cc.skinWidth = 0.08f;
 
         AsegurarAnimacion(player);
         ReconectarMateriales.EnMike(player);

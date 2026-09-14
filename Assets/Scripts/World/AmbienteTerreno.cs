@@ -211,9 +211,7 @@ public static class AmbienteTerreno
                     go = CrearArbolGrande(arbol);
 
                 go.name = proto == 2 ? "Roca" : proto == 1 ? "Palmera" : "Arbol";
-                go.transform.SetParent(padre, true);
                 float yaw = (nx * 360f + nz * 140f + proto * 37f) % 360f;
-                go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
                 float n = Mathf.PerlinNoise(nx * 23.1f, nz * 17.7f);
                 float n2 = Mathf.PerlinNoise(nx * 9.4f + 4f, nz * 14.2f);
                 float sx = Mathf.Clamp(ancho, 0.8f, 1.3f);
@@ -223,8 +221,7 @@ public static class AmbienteTerreno
                     sx *= 0.72f + n * 0.7f;
                     sy *= 0.78f + n2 * 0.7f;
                 }
-                go.transform.localScale = Vector3.Scale(go.transform.localScale, new Vector3(sx, sy, sx));
-                SentarEnSuelo(go, pos);
+                ColocarEnTerreno(go, padre, pos, yaw, new Vector3(sx, sy, sx), proto == 2);
                 ok++;
             }
             catch (System.Exception e)
@@ -249,12 +246,10 @@ public static class AmbienteTerreno
             pos.y = AlturaEn(pos);
             try
             {
-                var go = (i % 7 == 0) ? CrearRoca(null) : (i % 5 == 0) ? CrearPalmera(null) : CrearArbolGrande(null);
-                go.transform.SetParent(padre, true);
-                go.transform.rotation = Quaternion.Euler(0f, rng.Next(0, 360), 0f);
+                bool roca = i % 7 == 0;
+                var go = roca ? CrearRoca(null) : (i % 5 == 0) ? CrearPalmera(null) : CrearArbolGrande(null);
                 float s = 0.75f + (float)rng.NextDouble() * 0.7f;
-                go.transform.localScale *= s;
-                SentarEnSuelo(go, pos);
+                ColocarEnTerreno(go, padre, pos, rng.Next(0, 360), Vector3.one * s, roca);
             }
             catch (System.Exception e)
             {
@@ -484,6 +479,19 @@ public static class AmbienteTerreno
         return go;
     }
 
+    static void ColocarEnTerreno(GameObject go, Transform padre, Vector3 pos, float yaw, Vector3 escala, bool roca)
+    {
+        go.transform.SetParent(padre, true);
+        // Keep FBX -90° on the root; replacing it with yaw-only lays Palm capsules on their side.
+        go.transform.rotation = Quaternion.Euler(0f, yaw, 0f) * go.transform.rotation;
+        go.transform.localScale = Vector3.Scale(go.transform.localScale, escala);
+        SentarEnSuelo(go, pos);
+        if (roca)
+            AsegurarColliderRoca(go);
+        else
+            AsegurarColliderTronco(go);
+    }
+
     static void SentarEnSuelo(GameObject go, Vector3 destino)
     {
         go.transform.position = destino;
@@ -519,8 +527,7 @@ public static class AmbienteTerreno
 
     static void AplicarMat(GameObject go, Material mat)
     {
-        var r = go.GetComponent<Renderer>();
-        if (r != null && mat != null)
+        if (mat != null && go.TryGetComponent(out Renderer r))
             r.sharedMaterial = mat;
     }
 
@@ -570,8 +577,7 @@ public static class AmbienteTerreno
         {
             if (filter.sharedMesh == null)
                 continue;
-            var col = filter.gameObject.GetComponent<MeshCollider>();
-            if (col == null)
+            if (!filter.gameObject.TryGetComponent(out MeshCollider col))
                 col = filter.gameObject.AddComponent<MeshCollider>();
             col.sharedMesh = filter.sharedMesh;
             col.convex = filter.sharedMesh.vertexCount <= 255;
@@ -599,30 +605,6 @@ public static class AmbienteTerreno
     {
         QuitarColliders(go);
 
-        MeshFilter colliderMesh = null;
-        foreach (var t in go.GetComponentsInChildren<Transform>(true))
-        {
-            if (!Contiene(t.name, "collider"))
-                continue;
-            if (!t.TryGetComponent(out MeshFilter filtro))
-                continue;
-            colliderMesh = filtro;
-            break;
-        }
-
-        if (colliderMesh != null && colliderMesh.sharedMesh != null)
-        {
-            var host = colliderMesh.gameObject;
-            if (!host.TryGetComponent(out MeshCollider col))
-                col = host.AddComponent<MeshCollider>();
-            col.sharedMesh = colliderMesh.sharedMesh;
-            col.convex = false;
-            col.isTrigger = false;
-            if (host.TryGetComponent(out Renderer rend) && Contiene(colliderMesh.name, "collider"))
-                rend.enabled = false;
-            return;
-        }
-
         bool soloTronco = TryBoundsTronco(go, out var world);
         if (!soloTronco)
             world = BoundsTroncoPorForma(go, out soloTronco);
@@ -636,7 +618,7 @@ public static class AmbienteTerreno
         float mejorRatio = 0f;
         foreach (var r in go.GetComponentsInChildren<Renderer>(true))
         {
-            if (EsFollaje(r.gameObject.name))
+            if (EsFollaje(r.gameObject.name) || EsTarjeta(r.bounds, r.gameObject.name))
                 continue;
             var b = r.bounds;
             float xz = Mathf.Max(Mathf.Min(b.size.x, b.size.z), 0.05f);
@@ -675,7 +657,7 @@ public static class AmbienteTerreno
             if (mesh == null || mesh.vertexCount == 0)
                 continue;
 
-            var rend = filtro.GetComponent<Renderer>();
+            filtro.TryGetComponent(out Renderer rend);
             var mats = rend != null ? rend.sharedMaterials : null;
             int subs = Mathf.Max(mesh.subMeshCount, 1);
             string objName = filtro.gameObject.name;
@@ -687,7 +669,8 @@ public static class AmbienteTerreno
                 string matName = (mats != null && s < mats.Length && mats[s] != null)
                     ? mats[s].name
                     : objName;
-                if (EsFollaje(matName) || (objFollaje && !EsCorteza(matName)))
+                if (EsFollaje(matName)
+                    || (objFollaje && !EsCorteza(matName)))
                     continue;
 
                 bool incluir = objCorteza || EsCorteza(matName)
@@ -697,7 +680,7 @@ public static class AmbienteTerreno
 
                 if (!mesh.isReadable)
                 {
-                    if (rend == null)
+                    if (rend == null || EsTarjeta(rend.bounds, objName))
                         continue;
                     if (!any)
                         world = rend.bounds;
@@ -745,7 +728,8 @@ public static class AmbienteTerreno
 
         foreach (var r in go.GetComponentsInChildren<Renderer>(true))
         {
-            if (EsFollaje(r.gameObject.name) && !EsCorteza(r.gameObject.name))
+            if ((EsFollaje(r.gameObject.name) && !EsCorteza(r.gameObject.name))
+                || EsTarjeta(r.bounds, r.gameObject.name))
                 continue;
             bool corteza = EsCorteza(r.gameObject.name);
             if (!corteza && r.sharedMaterials != null)
@@ -783,16 +767,26 @@ public static class AmbienteTerreno
         else
             colGo = t.gameObject;
 
-        float worldH = Mathf.Clamp(world.size.y * (soloTronco ? 1.02f : 0.68f), 1.8f, 12f);
-        float worldR = soloTronco
-            ? Mathf.Min(world.size.x, world.size.z) * 0.42f
-            : 0.32f;
-        worldR = Mathf.Clamp(worldR, 0.18f, soloTronco ? 0.85f : 0.40f);
+        float worldH;
+        float worldR;
+        Vector3 center;
+        if (soloTronco)
+        {
+            worldH = Mathf.Clamp(world.size.y * 1.04f, 1.5f, 14f);
+            worldR = Mathf.Clamp(Mathf.Min(world.size.x, world.size.z) * 0.48f, 0.14f, 1.15f);
+            center = world.center;
+        }
+        else
+        {
+            worldH = Mathf.Clamp(world.size.y * 0.52f, 1.6f, 10f);
+            worldR = Mathf.Clamp(Mathf.Min(world.size.x, world.size.z) * 0.12f, 0.16f, 0.45f);
+            center = new Vector3(world.center.x, world.min.y + worldH * 0.5f, world.center.z);
+        }
 
-        // World-up capsule on a fresh child. FBX roots are often rotated -90°,
+        // World-up capsule on a child. FBX roots are often rotated -90°,
         // so a capsule on Palm(Clone) itself lies on its side and misses the trunk.
         t.SetParent(null);
-        t.position = world.center;
+        t.position = center;
         t.rotation = Quaternion.identity;
         t.localScale = Vector3.one;
         t.SetParent(go.transform, true);
@@ -819,7 +813,8 @@ public static class AmbienteTerreno
 
     static void AgregarCajaPorBounds(GameObject go)
     {
-        var box = go.AddComponent<BoxCollider>();
+        if (!go.TryGetComponent(out BoxCollider box))
+            box = go.AddComponent<BoxCollider>();
         var world = BoundsDe(go);
         box.center = go.transform.InverseTransformPoint(world.center);
         box.size = TamanoLocal(go.transform, world.size);
@@ -840,7 +835,17 @@ public static class AmbienteTerreno
         return Contiene(nombre, "Leaf") || Contiene(nombre, "Leaves")
             || Contiene(nombre, "Hoja") || Contiene(nombre, "Hojas")
             || Contiene(nombre, "Branch") || Contiene(nombre, "Fronda")
-            || Contiene(nombre, "Mesh_1");
+            || Contiene(nombre, "Mesh_1") || Contiene(nombre, "collider")
+            || Contiene(nombre, "Card") || Contiene(nombre, "Billboard");
+    }
+
+    static bool EsTarjeta(Bounds b, string nombre)
+    {
+        if (EsCorteza(nombre))
+            return false;
+        float xz = Mathf.Max(b.size.x, b.size.z, 0.05f);
+        float thin = Mathf.Min(b.size.x, Mathf.Min(b.size.y, b.size.z));
+        return b.size.y < xz * 0.22f || thin < xz * 0.08f;
     }
 
     static Material RocaMat()
