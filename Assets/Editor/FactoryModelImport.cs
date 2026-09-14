@@ -6,11 +6,12 @@ using UnityEngine;
 public class FactoryModelImport : AssetPostprocessor
 {
     const string ModelsFolder = "Assets/Resources/Models/";
+    const string EnvironmentFolder = "Assets/Resources/Environment/";
     const string MaterialsFolder = "Assets/Resources/Models/Materials";
 
     void OnPreprocessModel()
     {
-        if (!EsModeloDeProps(assetPath))
+        if (!EsModeloDeProps(assetPath) && !EsModeloDeEntorno(assetPath))
             return;
 
         var importer = (ModelImporter)assetImporter;
@@ -19,6 +20,13 @@ public class FactoryModelImport : AssetPostprocessor
         importer.materialSearch = ModelImporterMaterialSearch.Local;
         importer.materialLocation = ModelImporterMaterialLocation.InPrefab;
         importer.searchTexturesGlobally = false;
+        importer.animationType = ModelImporterAnimationType.None;
+        importer.avatarSetup = ModelImporterAvatarSetup.NoAvatar;
+        if (EsModeloDeEntorno(assetPath))
+        {
+            importer.indexFormat = ModelImporterIndexFormat.UInt32;
+            importer.isReadable = true;
+        }
     }
 
     Material OnAssignMaterialModel(Material material, Renderer renderer)
@@ -27,7 +35,14 @@ public class FactoryModelImport : AssetPostprocessor
             return null;
 
         var existente = BuscarMaterial(material.name);
-        return existente != null ? existente : material;
+        if (existente != null)
+        {
+            AsegurarTexturaTuberiaImport(existente);
+            return existente;
+        }
+
+        AsegurarTexturaTuberiaImport(material);
+        return material;
     }
 
     void OnPostprocessModel(GameObject root)
@@ -48,10 +63,14 @@ public class FactoryModelImport : AssetPostprocessor
                 if (actual == null)
                     continue;
                 var existente = BuscarMaterial(actual.name);
-                if (existente == null || existente == actual)
-                    continue;
-                shared[i] = existente;
-                changed = true;
+                if (existente != null && existente != actual)
+                {
+                    shared[i] = existente;
+                    actual = existente;
+                    changed = true;
+                }
+
+                AsegurarTexturaTuberiaImport(actual);
             }
 
             if (changed)
@@ -67,7 +86,40 @@ public class FactoryModelImport : AssetPostprocessor
         return path.IndexOf("Mike@", StringComparison.OrdinalIgnoreCase) < 0;
     }
 
+    static bool EsModeloDeEntorno(string path)
+    {
+        path = path.Replace('\\', '/');
+        return path.StartsWith(EnvironmentFolder, StringComparison.OrdinalIgnoreCase);
+    }
+
     static Material BuscarMaterial(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return null;
+
+        var encontrado = CargarMaterial(name);
+        if (encontrado != null)
+            return encontrado;
+
+        int colon = name.IndexOf(':');
+        if (colon > 0)
+        {
+            encontrado = CargarMaterial(name.Substring(0, colon));
+            if (encontrado != null)
+                return encontrado;
+        }
+
+        if (name.IndexOf("pipe2", StringComparison.OrdinalIgnoreCase) >= 0)
+            return CargarMaterial("pipe2");
+        if (name.IndexOf("pipe", StringComparison.OrdinalIgnoreCase) >= 0)
+            return CargarMaterial("pipe1") ?? CargarMaterial("metal");
+        if (string.Equals(name, "metal", StringComparison.OrdinalIgnoreCase))
+            return CargarMaterial("metal");
+
+        return null;
+    }
+
+    static Material CargarMaterial(string name)
     {
         if (string.IsNullOrEmpty(name))
             return null;
@@ -86,6 +138,29 @@ public class FactoryModelImport : AssetPostprocessor
         }
 
         return null;
+    }
+
+    static void AsegurarTexturaTuberiaImport(Material mat)
+    {
+        if (mat == null || string.IsNullOrEmpty(mat.name))
+            return;
+
+        var nombre = mat.name;
+        bool esPipe = nombre.IndexOf("pipe", StringComparison.OrdinalIgnoreCase) >= 0;
+        bool esMetal = string.Equals(nombre, "metal", StringComparison.OrdinalIgnoreCase);
+        if (!esPipe && !esMetal)
+            return;
+        if (mat.HasProperty("_MainTex") && mat.mainTexture != null)
+            return;
+
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/metal.jpg");
+        if (tex == null)
+            return;
+
+        mat.mainTexture = tex;
+        if (esPipe)
+            mat.mainTextureScale = new Vector2(2f, 2f);
+        EditorUtility.SetDirty(mat);
     }
 
     [InitializeOnLoad]
@@ -114,7 +189,11 @@ public class FactoryModelImport : AssetPostprocessor
                     continue;
 
                 var importer = AssetImporter.GetAtPath(path) as ModelImporter;
-                if (importer == null || importer.materialLocation == ModelImporterMaterialLocation.InPrefab)
+                if (importer == null)
+                    continue;
+                bool ok = importer.materialLocation == ModelImporterMaterialLocation.InPrefab
+                    && importer.animationType == ModelImporterAnimationType.None;
+                if (ok)
                     continue;
 
                 AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);

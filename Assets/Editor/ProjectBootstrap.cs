@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -31,7 +32,8 @@ public static class ProjectBootstrap
         ("glass", new Color(0.55f, 0.72f, 0.82f, 0.45f)),
         ("window", new Color(0.25f, 0.32f, 0.38f)),
         ("fence", new Color(0.40f, 0.40f, 0.38f)),
-        ("pipe2", new Color(0.55f, 0.35f, 0.18f)),
+        ("pipe1", new Color(0.92f, 0.90f, 0.86f)),
+        ("pipe2", new Color(0.82f, 0.84f, 0.88f)),
         ("15_verti", new Color(0.62f, 0.58f, 0.48f)),
         ("7cdred", new Color(0.72f, 0.16f, 0.14f)),
         ("7cdcolor", new Color(0.20f, 0.55f, 0.28f)),
@@ -79,7 +81,93 @@ public static class ProjectBootstrap
         EnsureBuildScenes();
         EnsurePlayModeStartScene();
         EnsureMaterialsBesideFbx();
+        EnsurePipeMetalTextures();
         ReimportMikeAsLegacy();
+        EnsureUiSprites();
+        EnsureEnvironmentAssets();
+    }
+
+    static void EnsureEnvironmentAssets()
+    {
+        const string folder = "Assets/Resources/Environment";
+        if (!AssetDatabase.IsValidFolder(folder))
+            return;
+
+        var texGuids = AssetDatabase.FindAssets("t:Texture2D", new[] { folder });
+        foreach (var guid in texGuids)
+        {
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+                continue;
+
+            bool hojas = path.IndexOf("BigTree.png", StringComparison.OrdinalIgnoreCase) >= 0
+                || path.IndexOf("PalmBranch", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (!hojas)
+                continue;
+            if (importer.alphaIsTransparency
+                && importer.wrapMode == TextureWrapMode.Clamp
+                && importer.mipmapEnabled)
+                continue;
+
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = true;
+            importer.mipMapsPreserveCoverage = true;
+            importer.alphaTestReferenceValue = 0.5f;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.SaveAndReimport();
+        }
+
+        var modelGuids = AssetDatabase.FindAssets("t:Model", new[] { folder });
+        foreach (var guid in modelGuids)
+        {
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            var importer = AssetImporter.GetAtPath(path) as ModelImporter;
+            if (importer == null)
+                continue;
+            bool ok = importer.animationType == ModelImporterAnimationType.None
+                && importer.indexFormat == ModelImporterIndexFormat.UInt32
+                && importer.isReadable;
+            if (ok)
+                continue;
+            importer.animationType = ModelImporterAnimationType.None;
+            importer.avatarSetup = ModelImporterAvatarSetup.NoAvatar;
+            importer.indexFormat = ModelImporterIndexFormat.UInt32;
+            importer.isReadable = true;
+            importer.materialLocation = ModelImporterMaterialLocation.InPrefab;
+            importer.SaveAndReimport();
+        }
+    }
+
+    static void EnsureUiSprites()
+    {
+        const string folder = "Assets/Resources/UI";
+        if (!AssetDatabase.IsValidFolder(folder))
+            return;
+
+        var guids = AssetDatabase.FindAssets("t:Texture2D", new[] { folder });
+        foreach (var guid in guids)
+        {
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+                continue;
+            if (importer.textureType == TextureImporterType.Sprite
+                && importer.spriteImportMode == SpriteImportMode.Single
+                && !importer.mipmapEnabled
+                && importer.npotScale == TextureImporterNPOTScale.None
+                && importer.wrapMode == TextureWrapMode.Clamp)
+                continue;
+
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.mipmapEnabled = false;
+            importer.alphaIsTransparency = true;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.SaveAndReimport();
+        }
     }
 
     static void EnsureBuildScenes()
@@ -153,6 +241,59 @@ public static class ProjectBootstrap
             CreateDiffuseIfMissing(Path.Combine(MaterialsFolder, entry.name + ".mat").Replace('\\', '/'), entry.name, entry.color);
         foreach (var entry in MikeMaterials)
             CreateDiffuseIfMissing(Path.Combine(MikeMaterialsFolder, entry.name + ".mat").Replace('\\', '/'), entry.name, entry.color);
+    }
+
+    static void EnsurePipeMetalTextures()
+    {
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/metal.jpg");
+        if (tex == null)
+            return;
+
+        foreach (var name in new[] { "pipe1", "pipe2", "metal" })
+        {
+            var path = Path.Combine(MaterialsFolder, name + ".mat").Replace('\\', '/');
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+                continue;
+
+            AmbienteVisual.RepararShader(mat);
+            bool dirty = false;
+            if (mat.HasProperty("_MainTex") && mat.mainTexture != tex)
+            {
+                mat.mainTexture = tex;
+                dirty = true;
+            }
+
+            bool esPipe = name.StartsWith("pipe", StringComparison.OrdinalIgnoreCase);
+            if (esPipe && mat.HasProperty("_MainTex") && mat.mainTextureScale == Vector2.one)
+            {
+                mat.mainTextureScale = new Vector2(2f, 2f);
+                dirty = true;
+            }
+
+            if (esPipe && mat.HasProperty("_Color") && mat.color.maxColorComponent < 0.7f)
+            {
+                mat.color = name == "pipe2"
+                    ? new Color(0.82f, 0.84f, 0.88f)
+                    : new Color(0.92f, 0.90f, 0.86f);
+                dirty = true;
+            }
+
+            if (esPipe && mat.HasProperty("_Metallic") && mat.GetFloat("_Metallic") < 0.2f)
+            {
+                mat.SetFloat("_Metallic", name == "pipe2" ? 0.7f : 0.62f);
+                dirty = true;
+            }
+
+            if (esPipe && mat.HasProperty("_Glossiness") && mat.GetFloat("_Glossiness") < 0.15f)
+            {
+                mat.SetFloat("_Glossiness", 0.4f);
+                dirty = true;
+            }
+
+            if (dirty)
+                EditorUtility.SetDirty(mat);
+        }
     }
 
     static void EnsureFolder(string path)

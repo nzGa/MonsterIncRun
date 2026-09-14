@@ -1,7 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections;
+using System;
 
+[DefaultExecutionOrder(-100)]
 public class GameGUI : MonoBehaviour
 {
     static bool _mje_zapato;
@@ -25,87 +26,283 @@ public class GameGUI : MonoBehaviour
     static bool _mje_ya_tenes_item;
     public static bool MjeYaTenesItem { get { return _mje_ya_tenes_item; } set { _mje_ya_tenes_item = value; } }
 
-    bool mje_falta_tubo;
-    Text _mensaje;
-    Image _imgTubo;
-    Image _imgCasco;
-    Image _imgZapato;
-    Image _imgZoquete;
+    static readonly Color SlotVacio = new Color(0.12f, 0.14f, 0.12f, 0.92f);
+    static readonly Color SlotActivo = new Color(0.18f, 0.52f, 0.26f, 0.96f);
+    static readonly Color SlotAlerta = new Color(0.68f, 0.30f, 0.08f, 0.96f);
+    static readonly Color IconoApagado = new Color(1f, 1f, 1f, 0.32f);
+    static readonly Color MensajeOk = new Color(0.72f, 1f, 0.78f, 1f);
+    static readonly Color MensajeAlerta = new Color(1f, 0.82f, 0.32f, 1f);
+    static readonly Color MensajePeligro = new Color(1f, 0.48f, 0.32f, 1f);
+
+    Slot _slotZapato;
+    Slot _slotZoquete;
+    Slot _slotCasco;
+    Slot _slotTubo;
     Image _imgGanaste;
     Image _imgPerdiste;
-    bool _ocultando;
+    Image _veloFinal;
+    Image _panelMensaje;
+    Text _mensaje;
+    Text _nombre;
+    Text _timer;
+    Canvas _hud;
+    string _textoMensaje;
+    Color _colorMensaje = Color.white;
+    float _ocultarMensajeEn;
+    int _ultimoAvisoSegundos = -1;
+    bool mje_falta_tubo;
 
-    void Start()
+    void Awake()
     {
+        DestroyLegacyOverlays();
         ConstruirHud();
+    }
+
+    void OnDestroy()
+    {
+        if (_hud != null)
+            Destroy(_hud.gameObject);
+    }
+
+    // Replaces Unity 4 IMGUI. Canvas is the only in-game HUD.
+    void OnGUI()
+    {
     }
 
     void Update()
     {
+        DestroyLegacyOverlays();
+
         if (ObjetosPorJugador.TocandoPuerta)
         {
             ObjetosPorJugador.TocandoPuerta = false;
             mje_falta_tubo = true;
-            PedirOcultar();
         }
 
-        if (MensajeZapato || MjeTieneTubo || MjeTieneZoquete || MjeDescontaminado || MjeContaminado ||
-            MjeTieneCasco || MjeContaminaste || MjeCascoUsado || MjeYaTenesTubo || MjeYaTenesItem)
-            PedirOcultar();
+        if (_hud == null)
+            ConstruirHud();
 
-        if (_imgGanaste != null)
-            _imgGanaste.enabled = ObjetosPorJugador.JugadorHaGanado;
-        if (_imgPerdiste != null)
-            _imgPerdiste.enabled = ObjetosPorJugador.JugadorHaPerdido && !ObjetosPorJugador.JugadorHaGanado;
+        ActualizarNombre();
+        ActualizarTimer();
+        ActualizarInventario();
+        ActualizarAvisosTiempo();
+        CapturarMensaje();
+        ActualizarMensaje();
+        ActualizarFinal();
+    }
 
-        if (_imgTubo != null) _imgTubo.enabled = ObjetosPorJugador.TieneTubo;
-        if (_imgCasco != null) _imgCasco.enabled = ObjetosPorJugador.TieneCasco;
-        if (_imgZapato != null) _imgZapato.enabled = ObjetosPorJugador.TieneZapato;
-        if (_imgZoquete != null) _imgZoquete.enabled = ObjetosPorJugador.TieneZoquete;
+    void DestroyLegacyOverlays()
+    {
+        var canvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include);
+        for (int i = 0; i < canvases.Length; i++)
+        {
+            var canvas = canvases[i];
+            if (canvas == null || canvas == _hud)
+                continue;
+            if (canvas.name == "TimerCanvas" || canvas.name == "HudCanvas")
+                Destroy(canvas.gameObject);
+        }
+    }
 
-        if (_mensaje == null)
+    void ActualizarNombre()
+    {
+        if (_nombre == null)
+            return;
+        _nombre.text = NombreVisible();
+    }
+
+    static string NombreVisible()
+    {
+        if (GestionaMultiJugador.Instancia != null && !string.IsNullOrEmpty(GestionaMultiJugador.Instancia.nombreJugador))
+            return GestionaMultiJugador.Instancia.nombreJugador;
+
+        var nj = FindAnyObjectByType<NombreJugador>();
+        if (nj != null && !string.IsNullOrEmpty(nj.nombreJugador))
+            return nj.nombreJugador;
+        return "Mike";
+    }
+
+    void ActualizarTimer()
+    {
+        if (_timer == null)
             return;
 
-        if (ObjetosPorJugador.JugadorHaGanado)
-            _mensaje.text = "GANASTE !!!";
-        else if (ObjetosPorJugador.JugadorHaPerdido)
-            _mensaje.text = "PERDISTE :(";
-        else if (mje_falta_tubo)
-            _mensaje.text = "Necesitas un tubo para poder pasar";
-        else if (MensajeZapato)
-            _mensaje.text = "Ahora corres mas rapido!";
-        else if (MjeTieneTubo)
-            _mensaje.text = "Busca la puerta y gana!";
-        else if (MjeTieneZoquete)
-            _mensaje.text = "Te han contaminado! Busca la ducha!";
-        else if (MjeTieneCasco)
-            _mensaje.text = "Sos inmune a las contaminaciones!";
-        else if (MjeDescontaminado)
-            _mensaje.text = "Estas descontaminado!";
-        else if (MjeContaminado)
-            _mensaje.text = "Debes descontaminarte en la ducha!";
-        else if (MjeContaminaste)
-            _mensaje.text = "Contaminaste a todos tus oponentes";
-        else if (MjeCascoUsado)
-            _mensaje.text = "No han podido contaminarte";
-        else if (MjeYaTenesTubo)
-            _mensaje.text = "Ya tenes un tubo";
-        else if (MjeYaTenesItem)
-            _mensaje.text = "Ya tenes este objeto";
+        if (MostrarTimer.segundosFaltantes < 0f)
+        {
+            _timer.text = "--:--";
+            _timer.color = Color.white;
+            return;
+        }
+
+        int rounded = Mathf.Max(0, Mathf.CeilToInt(MostrarTimer.segundosFaltantes));
+        int minutes = rounded / 60;
+        int seconds = rounded % 60;
+        _timer.text = string.Format("{0:D2}:{1:D2}", minutes, seconds);
+
+        if (rounded <= 30)
+            _timer.color = MensajePeligro;
+        else if (rounded <= 120)
+            _timer.color = MensajeAlerta;
         else
-            _mensaje.text = "";
+            _timer.color = Color.white;
     }
 
-    void PedirOcultar()
+    void ActualizarInventario()
     {
-        if (!_ocultando)
-            StartCoroutine(Esperar_OcultarMje());
+        if (_slotZapato != null)
+            _slotZapato.SetHeld(ObjetosPorJugador.TieneZapato, false);
+        if (_slotZoquete != null)
+            _slotZoquete.SetHeld(ObjetosPorJugador.TieneZoquete, ObjetosPorJugador.TieneZoquete);
+        if (_slotCasco != null)
+            _slotCasco.SetHeld(ObjetosPorJugador.TieneCasco, false);
+        if (_slotTubo != null)
+            _slotTubo.SetHeld(ObjetosPorJugador.TieneTubo, false);
     }
 
-    IEnumerator Esperar_OcultarMje()
+    void ActualizarAvisosTiempo()
     {
-        _ocultando = true;
-        yield return new WaitForSeconds(3f);
+        if (ObjetosPorJugador.JugadorHaGanado || ObjetosPorJugador.JugadorHaPerdido)
+            return;
+        if (MostrarTimer.segundosFaltantes < 0f)
+            return;
+
+        int s = Mathf.CeilToInt(MostrarTimer.segundosFaltantes);
+        if (s == _ultimoAvisoSegundos)
+            return;
+
+        string aviso = null;
+        Color color = MensajeAlerta;
+        if (s == 300)
+            aviso = "Quedan 5 minutos!";
+        else if (s == 120)
+            aviso = "Quedan 2 minutos!";
+        else if (s == 60)
+            aviso = "Queda 1 minuto!";
+        else if (s == 30)
+        {
+            aviso = "Quedan 30 segundos!";
+            color = MensajePeligro;
+        }
+
+        if (aviso == null)
+            return;
+
+        _ultimoAvisoSegundos = s;
+        MostrarToast(aviso, color);
+    }
+
+    void CapturarMensaje()
+    {
+        if (ObjetosPorJugador.JugadorHaGanado || ObjetosPorJugador.JugadorHaPerdido)
+            return;
+
+        string texto = null;
+        Color color = Color.white;
+
+        if (mje_falta_tubo)
+        {
+            texto = "Necesitas un tubo para poder pasar";
+            color = MensajeAlerta;
+        }
+        else if (MensajeZapato)
+        {
+            texto = "Ahora corres mas rapido!";
+            color = MensajeOk;
+        }
+        else if (MjeTieneTubo)
+        {
+            texto = "Busca la puerta y gana!";
+            color = MensajeOk;
+        }
+        else if (MjeTieneZoquete)
+        {
+            texto = "Te han contaminado! Busca la ducha!";
+            color = MensajePeligro;
+        }
+        else if (MjeTieneCasco)
+        {
+            texto = "Sos inmune a las contaminaciones!";
+            color = MensajeOk;
+        }
+        else if (MjeDescontaminado)
+        {
+            texto = "Estas descontaminado!";
+            color = MensajeOk;
+        }
+        else if (MjeContaminado)
+        {
+            texto = "Debes descontaminarte en la ducha!";
+            color = MensajePeligro;
+        }
+        else if (MjeContaminaste)
+        {
+            texto = "Contaminaste a todos tus oponentes";
+            color = MensajeAlerta;
+        }
+        else if (MjeCascoUsado)
+        {
+            texto = "No han podido contaminarte";
+            color = MensajeOk;
+        }
+        else if (MjeYaTenesTubo)
+        {
+            texto = "Ya tenes un tubo";
+            color = MensajeAlerta;
+        }
+        else if (MjeYaTenesItem)
+        {
+            texto = "Ya tenes este objeto";
+            color = MensajeAlerta;
+        }
+
+        if (texto == null)
+            return;
+
+        LimpiarFlags();
+        MostrarToast(texto, color);
+    }
+
+    void MostrarToast(string texto, Color color)
+    {
+        _textoMensaje = texto;
+        _colorMensaje = color;
+        _ocultarMensajeEn = Time.unscaledTime + 3.2f;
+    }
+
+    void ActualizarMensaje()
+    {
+        if (_mensaje == null || _panelMensaje == null)
+            return;
+
+        if (ObjetosPorJugador.JugadorHaGanado || ObjetosPorJugador.JugadorHaPerdido)
+        {
+            _panelMensaje.gameObject.SetActive(false);
+            return;
+        }
+
+        bool visible = !string.IsNullOrEmpty(_textoMensaje) && Time.unscaledTime < _ocultarMensajeEn;
+        _panelMensaje.gameObject.SetActive(visible);
+        if (!visible)
+            return;
+
+        _mensaje.text = _textoMensaje;
+        _mensaje.color = _colorMensaje;
+    }
+
+    void ActualizarFinal()
+    {
+        bool gano = ObjetosPorJugador.JugadorHaGanado;
+        bool perdio = ObjetosPorJugador.JugadorHaPerdido && !gano;
+        if (_imgGanaste != null)
+            _imgGanaste.enabled = gano;
+        if (_imgPerdiste != null)
+            _imgPerdiste.enabled = perdio;
+        if (_veloFinal != null)
+            _veloFinal.enabled = gano || perdio;
+    }
+
+    void LimpiarFlags()
+    {
         mje_falta_tubo = false;
         MensajeZapato = false;
         MjeTieneTubo = false;
@@ -117,54 +314,116 @@ public class GameGUI : MonoBehaviour
         MjeCascoUsado = false;
         MjeYaTenesTubo = false;
         MjeYaTenesItem = false;
-        _ocultando = false;
     }
 
     void ConstruirHud()
     {
-        var canvas = UiFactory.CreateCanvas("HudCanvas", 10).transform;
+        var leftover = GameObject.Find("HudCanvas");
+        if (leftover != null)
+            DestroyImmediate(leftover);
+        leftover = GameObject.Find("TimerCanvas");
+        if (leftover != null)
+            DestroyImmediate(leftover);
 
-        _imgTubo = Icono(canvas, "IconoTubo", "UI/tubo", new Vector2(24, -24));
-        _imgCasco = Icono(canvas, "IconoCasco", "UI/casco", new Vector2(104, -24));
-        _imgZapato = Icono(canvas, "IconoZapato", "UI/zapato", new Vector2(184, -24));
-        _imgZoquete = Icono(canvas, "IconoZoquete", "UI/zoquete", new Vector2(264, -24));
+        _hud = UiFactory.CreateCanvas("HudCanvas", 30);
+        var canvas = _hud.transform;
+
+        var barra = UiFactory.AddTopBar(canvas, "BarraSuperior", 118f, new Color(0.03f, 0.05f, 0.04f, 0.88f));
+
+        var chip = UiFactory.AddPanelFixed(barra.transform, "Jugador", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(18f, 0f), new Vector2(300f, 86f), new Color(0.08f, 0.12f, 0.08f, 0.95f));
+        var avatar = UiFactory.AddImageFixed(chip.transform, "Avatar", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(10f, 0f), new Vector2(64f, 64f), Color.white);
+        avatar.preserveAspect = true;
+        var texMike = UiFactory.LoadSprite("UI/icono_mike_sullivan");
+        if (texMike != null)
+            avatar.sprite = texMike;
+
+        _nombre = UiFactory.AddText(chip.transform, "Nombre", "Mike", 36, TextAnchor.MiddleLeft, Color.white, true, FontStyle.Bold);
+        _nombre.rectTransform.anchorMin = Vector2.zero;
+        _nombre.rectTransform.anchorMax = Vector2.one;
+        _nombre.rectTransform.offsetMin = new Vector2(84f, 8f);
+        _nombre.rectTransform.offsetMax = new Vector2(-12f, -8f);
+
+        var timerPanel = UiFactory.AddPanelFixed(barra.transform, "Timer", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(280f, 90f), new Color(0.08f, 0.12f, 0.08f, 0.95f));
+        var timerLabel = UiFactory.AddText(timerPanel.transform, "Etiqueta", "TIEMPO", 18, TextAnchor.UpperCenter, new Color(1f, 1f, 1f, 0.75f), true, FontStyle.Bold);
+        timerLabel.rectTransform.anchorMin = new Vector2(0.08f, 0.55f);
+        timerLabel.rectTransform.anchorMax = new Vector2(0.92f, 0.95f);
+        timerLabel.rectTransform.offsetMin = Vector2.zero;
+        timerLabel.rectTransform.offsetMax = Vector2.zero;
+
+        _timer = UiFactory.AddText(timerPanel.transform, "Valor", "15:00", 48, TextAnchor.LowerCenter, Color.white, true, FontStyle.Bold);
+        _timer.rectTransform.anchorMin = new Vector2(0.06f, 0.04f);
+        _timer.rectTransform.anchorMax = new Vector2(0.94f, 0.62f);
+        _timer.rectTransform.offsetMin = Vector2.zero;
+        _timer.rectTransform.offsetMax = Vector2.zero;
+        _timer.horizontalOverflow = HorizontalWrapMode.Overflow;
+
+        const float slot = 92f;
+        const float gap = 10f;
+        _slotZapato = Slot.Crear(barra.transform, "Zapato", "UI/zapato", "Zapato", -24f - 3f * (slot + gap), slot);
+        _slotZoquete = Slot.Crear(barra.transform, "Zoquete", "UI/zoquete", "Media", -24f - 2f * (slot + gap), slot);
+        _slotCasco = Slot.Crear(barra.transform, "Casco", "UI/casco", "Casco", -24f - 1f * (slot + gap), slot);
+        _slotTubo = Slot.Crear(barra.transform, "Tubo", "UI/tubo", "Tubo", -24f, slot);
+
+        _panelMensaje = UiFactory.AddPanelFixed(canvas, "MensajePanel", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 36f), new Vector2(1100f, 96f), new Color(0.04f, 0.05f, 0.04f, 0.92f));
+        _mensaje = UiFactory.AddText(_panelMensaje.transform, "Mensaje", "", 34, TextAnchor.MiddleCenter, Color.white, true, FontStyle.Bold);
+        UiFactory.Stretch(_mensaje.rectTransform);
+        _mensaje.rectTransform.offsetMin = new Vector2(24f, 8f);
+        _mensaje.rectTransform.offsetMax = new Vector2(-24f, -8f);
+        _panelMensaje.gameObject.SetActive(false);
+
+        _veloFinal = UiFactory.AddImage(canvas, "VeloFinal", Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.42f));
+        _veloFinal.enabled = false;
 
         _imgGanaste = Banner(canvas, "Ganaste", "UI/ganaste");
         _imgPerdiste = Banner(canvas, "Perdiste", "UI/perdiste");
-
-        _mensaje = UiFactory.AddText(canvas, "Mensaje", "", 36, TextAnchor.LowerCenter, Color.white);
-        _mensaje.rectTransform.anchorMin = new Vector2(0.15f, 0.08f);
-        _mensaje.rectTransform.anchorMax = new Vector2(0.85f, 0.22f);
-        UiFactory.Stretch(_mensaje.rectTransform);
-    }
-
-    static Image Icono(Transform parent, string name, string resource, Vector2 pos)
-    {
-        var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        go.transform.SetParent(parent, false);
-        var rt = go.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0, 1);
-        rt.anchorMax = new Vector2(0, 1);
-        rt.pivot = new Vector2(0, 1);
-        rt.anchoredPosition = pos;
-        rt.sizeDelta = new Vector2(64, 64);
-        var img = go.GetComponent<Image>();
-        var tex = Resources.Load<Texture2D>(resource);
-        if (tex != null)
-            img.sprite = UiFactory.SpriteFromTexture(tex);
-        img.enabled = false;
-        img.raycastTarget = false;
-        return img;
     }
 
     static Image Banner(Transform parent, string name, string resource)
     {
-        var img = UiFactory.AddImage(parent, name, new Vector2(0.02f, 0.35f), new Vector2(0.32f, 0.75f), Color.white);
+        var img = UiFactory.AddImage(parent, name, new Vector2(0.28f, 0.32f), new Vector2(0.72f, 0.78f), Color.white);
         img.preserveAspect = true;
-        var tex = Resources.Load<Texture2D>(resource);
-        if (tex != null)
-            img.sprite = UiFactory.SpriteFromTexture(tex);
+        img.sprite = UiFactory.LoadSprite(resource);
         img.enabled = false;
         return img;
+    }
+
+    class Slot
+    {
+        Image _marco;
+        Image _icono;
+
+        public static Slot Crear(Transform parent, string name, string resource, string etiqueta, float x, float size)
+        {
+            var slot = new Slot();
+            slot._marco = UiFactory.AddPanelFixed(parent, "Slot" + name, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(x, 0f), new Vector2(size, size + 8f), SlotVacio);
+
+            slot._icono = UiFactory.AddImageFixed(slot._marco.transform, "Icono", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(size - 22f, size - 28f), IconoApagado);
+            slot._icono.preserveAspect = true;
+            var sprite = UiFactory.LoadSprite(resource);
+            if (sprite != null)
+                slot._icono.sprite = sprite;
+
+            var label = UiFactory.AddText(slot._marco.transform, "Label", etiqueta, 14, TextAnchor.LowerCenter, new Color(1f, 1f, 1f, 0.9f), true, FontStyle.Bold);
+            label.rectTransform.anchorMin = new Vector2(0f, 0f);
+            label.rectTransform.anchorMax = new Vector2(1f, 0f);
+            label.rectTransform.pivot = new Vector2(0.5f, 0f);
+            label.rectTransform.anchoredPosition = new Vector2(0f, 4f);
+            label.rectTransform.sizeDelta = new Vector2(0f, 20f);
+            slot.SetHeld(false, false);
+            return slot;
+        }
+
+        public void SetHeld(bool held, bool alerta)
+        {
+            if (_marco == null || _icono == null)
+                return;
+            _icono.color = held ? Color.white : IconoApagado;
+            if (held && alerta)
+                _marco.color = SlotAlerta;
+            else if (held)
+                _marco.color = SlotActivo;
+            else
+                _marco.color = SlotVacio;
+        }
     }
 }
