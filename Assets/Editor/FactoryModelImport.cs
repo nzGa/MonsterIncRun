@@ -35,14 +35,11 @@ public class FactoryModelImport : AssetPostprocessor
             return null;
 
         var existente = BuscarMaterial(material.name);
-        if (existente != null)
-        {
-            AsegurarTexturaTuberiaImport(existente);
-            return existente;
-        }
+        if (existente == null || string.IsNullOrEmpty(AssetDatabase.GetAssetPath(existente)))
+            return null;
 
-        AsegurarTexturaTuberiaImport(material);
-        return material;
+        AsegurarTexturaTuberiaImport(existente);
+        return existente;
     }
 
     void OnPostprocessModel(GameObject root)
