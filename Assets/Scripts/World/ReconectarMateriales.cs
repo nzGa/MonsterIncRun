@@ -967,13 +967,13 @@ public static class ReconectarMateriales
             if (!hayPiso)
                 continue;
 
-            var copy = Object.Instantiate(mesh);
+            var copy = UnityEngine.Object.Instantiate(mesh);
             copy.name = mesh.name + "_PisoUV";
             var verts = copy.vertices;
             var uv = copy.uv;
             if (verts == null || verts.Length == 0)
             {
-                Object.Destroy(copy);
+                UnityEngine.Object.Destroy(copy);
                 continue;
             }
             if (uv == null || uv.Length != verts.Length)
@@ -1002,7 +1002,7 @@ public static class ReconectarMateriales
 
             if (!dirty)
             {
-                Object.Destroy(copy);
+                UnityEngine.Object.Destroy(copy);
                 continue;
             }
 
