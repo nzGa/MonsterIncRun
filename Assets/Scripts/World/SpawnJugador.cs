@@ -122,7 +122,7 @@ public class SpawnJugador : MonoBehaviour
                 bool loop = take == "Espera" || take == "Camina" || take == "Corre";
                 state.wrapMode = loop ? WrapMode.Loop : WrapMode.Once;
                 if (take == "Corre")
-                    state.speed = 2.25f;
+                    state.speed = 1.15f;
             }
         }
 

@@ -20,7 +20,20 @@ public class LegacyMikeImport : AssetPostprocessor
         importer.materialSearch = ModelImporterMaterialSearch.Local;
         importer.materialLocation = ModelImporterMaterialLocation.InPrefab;
         importer.searchTexturesGlobally = false;
+        if (string.IsNullOrEmpty(importer.motionNodeName))
+            importer.motionNodeName = "Bip003";
+        AplicarClips(importer);
+    }
 
+    void OnPreprocessAnimation()
+    {
+        if (!EsTakeMike(assetPath))
+            return;
+        AplicarClips((ModelImporter)assetImporter);
+    }
+
+    void AplicarClips(ModelImporter importer)
+    {
         var clipName = NombreClip(assetPath);
         if (string.IsNullOrEmpty(clipName))
             return;
@@ -42,7 +55,7 @@ public class LegacyMikeImport : AssetPostprocessor
             clip.lockRootPositionXZ = true;
             clip.keepOriginalOrientation = true;
             clip.keepOriginalPositionY = true;
-            clip.keepOriginalPositionXZ = false;
+            clip.keepOriginalPositionXZ = true;
         }
         importer.clipAnimations = clips;
     }
@@ -131,6 +144,21 @@ public class LegacyMikeImport : AssetPostprocessor
             || clipName.Equals("Corre", StringComparison.OrdinalIgnoreCase);
     }
 
+    public static bool RootMotionBloqueado(ModelImporter importer)
+    {
+        if (importer == null)
+            return false;
+        var clips = importer.clipAnimations;
+        if (clips == null || clips.Length == 0)
+            return false;
+        foreach (var clip in clips)
+        {
+            if (!clip.lockRootPositionXZ || !clip.lockRootRotation || !clip.lockRootHeightY)
+                return false;
+        }
+        return true;
+    }
+
     [InitializeOnLoad]
     static class ReimportMaterialLocation
     {
@@ -159,7 +187,10 @@ public class LegacyMikeImport : AssetPostprocessor
                     continue;
 
                 var importer = AssetImporter.GetAtPath(path) as ModelImporter;
-                if (importer == null || importer.materialLocation == ModelImporterMaterialLocation.InPrefab)
+                if (importer == null)
+                    continue;
+                if (importer.materialLocation == ModelImporterMaterialLocation.InPrefab
+                    && RootMotionBloqueado(importer))
                     continue;
 
                 AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
