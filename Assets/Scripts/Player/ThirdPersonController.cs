@@ -12,7 +12,7 @@ public class ThirdPersonController : MonoBehaviour
 
     public float walkMaxAnimationSpeed = 1.05f;
     public float trotMaxAnimationSpeed = 1f;
-    public float runMaxAnimationSpeed = 1.15f;
+    public float runMaxAnimationSpeed = 1.75f;
     public float jumpAnimationSpeed = 1.15f;
     public float landAnimationSpeed = 1f;
     public float walkSpeed = 2f;
@@ -21,8 +21,8 @@ public class ThirdPersonController : MonoBehaviour
     const float WalkSpeedUnity4 = 2f;
     const float RunSpeedBase = 9f;
     const float RunSpeedZapato = 12f;
-    const float RunAnimSpeed = 1.15f;
-    const float RunAnimSpeedZapato = 1.3f;
+    const float RunAnimSpeed = 1.75f;
+    const float RunAnimSpeedZapato = 1.9f;
     const float FadeAnimacion = 0.12f;
     public float inAirControlAcceleration = 3f;
     public float jumpHeight = 1.3f;
