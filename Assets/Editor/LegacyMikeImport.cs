@@ -67,7 +67,9 @@ public class LegacyMikeImport : AssetPostprocessor
 
         var path = "Assets/Resources/Models/Mike/Materials/" + material.name + ".mat";
         var existente = AssetDatabase.LoadAssetAtPath<Material>(path);
-        return existente != null ? existente : material;
+        return existente != null && !string.IsNullOrEmpty(AssetDatabase.GetAssetPath(existente))
+            ? existente
+            : null;
     }
 
     void OnPostprocessModel(GameObject root)
