@@ -226,7 +226,8 @@ public static class ProjectBootstrap
             if (importer == null)
                 continue;
             if (importer.animationType == ModelImporterAnimationType.Legacy
-                && importer.materialLocation == ModelImporterMaterialLocation.InPrefab)
+                && importer.materialLocation == ModelImporterMaterialLocation.InPrefab
+                && LegacyMikeImport.RootMotionBloqueado(importer))
                 continue;
 
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
