@@ -114,6 +114,7 @@ public static class ReconectarMateriales
         ForzarPipesEnFabrica(root);
         ForzarChimeneasEnFabrica(root);
         ForzarVidriosEnFabrica(root);
+        RepararUvPisoFabrica(root);
     }
 
     public static void EnMike(GameObject root)
@@ -933,6 +934,88 @@ public static class ReconectarMateriales
         }
     }
 
+    // fabrica.FBX ground/ground1/ground3 share one UV (a single texel), so albedo looks untextured.
+    // ground1 is the raised apron between the building and the 80x80 tiled Suelo.
+    static void RepararUvPisoFabrica(GameObject root)
+    {
+        if (root == null)
+            return;
+
+        foreach (var filter in root.GetComponentsInChildren<MeshFilter>(true))
+        {
+            var renderer = filter != null ? filter.GetComponent<MeshRenderer>() : null;
+            var mesh = filter != null ? filter.sharedMesh : null;
+            if (renderer == null || mesh == null || !mesh.isReadable)
+                continue;
+            if (!string.IsNullOrEmpty(mesh.name) && mesh.name.EndsWith("_PisoUV", StringComparison.Ordinal))
+                continue;
+
+            var mats = renderer.sharedMaterials;
+            if (mats == null || mats.Length == 0)
+                continue;
+
+            int subCount = Mathf.Min(mesh.subMeshCount, mats.Length);
+            bool hayPiso = false;
+            for (int i = 0; i < subCount; i++)
+            {
+                if (EsPisoFbx(NombreMaterial(mats[i])))
+                {
+                    hayPiso = true;
+                    break;
+                }
+            }
+            if (!hayPiso)
+                continue;
+
+            var copy = Object.Instantiate(mesh);
+            copy.name = mesh.name + "_PisoUV";
+            var verts = copy.vertices;
+            var uv = copy.uv;
+            if (verts == null || verts.Length == 0)
+            {
+                Object.Destroy(copy);
+                continue;
+            }
+            if (uv == null || uv.Length != verts.Length)
+                uv = new Vector2[verts.Length];
+
+            var xf = filter.transform;
+            const float tilesPorMetro = 0.2f;
+            bool dirty = false;
+            for (int s = 0; s < subCount; s++)
+            {
+                if (!EsPisoFbx(NombreMaterial(mats[s])))
+                    continue;
+                var tris = copy.GetTriangles(s);
+                if (tris == null)
+                    continue;
+                for (int t = 0; t < tris.Length; t++)
+                {
+                    int i = tris[t];
+                    if (i < 0 || i >= verts.Length)
+                        continue;
+                    var w = xf.TransformPoint(verts[i]);
+                    uv[i] = new Vector2(w.x * tilesPorMetro, w.z * tilesPorMetro);
+                    dirty = true;
+                }
+            }
+
+            if (!dirty)
+            {
+                Object.Destroy(copy);
+                continue;
+            }
+
+            copy.uv = uv;
+            filter.sharedMesh = copy;
+        }
+    }
+
+    static bool EsPisoFbx(string nombre)
+    {
+        return Contiene(nombre, "ground");
+    }
+
     static bool EsPipe2(Material material, Renderer renderer)
     {
         if (Contiene(NombreMaterial(material), "pipe2"))
@@ -1413,7 +1496,9 @@ public static class ReconectarMateriales
         var colorAntes = material.HasProperty("_Color") ? material.color : Color.white;
 
         material.mainTexture = tex;
-        material.mainTextureScale = EscalaDeRol(rol, renderer);
+        material.mainTextureScale = EsPisoFbx(NombreMaterial(material))
+            ? Vector2.one
+            : EscalaDeRol(rol, renderer);
         if (material.HasProperty("_Color"))
             material.color = TintDeRol(rol, material.color);
 
