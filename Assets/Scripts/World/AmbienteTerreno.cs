@@ -702,8 +702,8 @@ public static class AmbienteTerreno
         QuitarColliders(go);
         DesactivarMeshCollidersHojas(go);
 
-        var world = BoundsTroncoVertical(go, out bool arbusto);
-        AplicarCapsulaTronco(go, world, arbusto);
+        var world = BoundsTroncoVertical(go, out bool arbusto, out float radioRaiz);
+        AplicarCapsulaTronco(go, world, arbusto, radioRaiz);
     }
 
     static bool EsCorteza(string nombre)
@@ -713,9 +713,10 @@ public static class AmbienteTerreno
             || Contiene(nombre, "PalmaTerreno") || Contiene(nombre, "Corteza");
     }
 
-    static Bounds BoundsTroncoVertical(GameObject go, out bool arbusto)
+    static Bounds BoundsTroncoVertical(GameObject go, out bool arbusto, out float radioRaiz)
     {
         arbusto = false;
+        radioRaiz = 0f;
         var puntos = new List<Vector3>(512);
         RecolectarPuntosTronco(go, puntos);
 
@@ -804,6 +805,7 @@ public static class AmbienteTerreno
 
         float rBase = Mathf.Max(Percentil(radios, 0.8f), 0.12f);
         float rLim = rBase * 2.55f;
+        float rRaiz = RadioRaizEnBase(puntos, cx, cz, yMin, alto, rBase);
         float yTronco = yMin;
         const int bands = 18;
         for (int b = 0; b < bands; b++)
@@ -845,9 +847,32 @@ public static class AmbienteTerreno
 
         float radius = Mathf.Clamp(rBase * 1.06f, 0.16f, 1.4f);
         float height = Mathf.Clamp(h * 1.02f, 1.3f, 16f);
+        radioRaiz = Mathf.Clamp(Mathf.Max(rRaiz, radius * 1.55f), 0.28f, 2.45f);
         return new Bounds(
             new Vector3(cx, yMin + height * 0.5f, cz),
             new Vector3(radius * 2f, height, radius * 2f));
+    }
+
+    static float RadioRaizEnBase(List<Vector3> puntos, float cx, float cz, float yMin, float alto, float rTronco)
+    {
+        float yHi = yMin + Mathf.Min(1.2f, Mathf.Max(0.7f, alto * 0.10f));
+        var radios = new List<float>(64);
+        for (int i = 0; i < puntos.Count; i++)
+        {
+            var p = puntos[i];
+            if (p.y < yMin - 0.02f || p.y > yHi)
+                continue;
+            float dx = p.x - cx;
+            float dz = p.z - cz;
+            radios.Add(Mathf.Sqrt(dx * dx + dz * dz));
+        }
+
+        if (radios.Count == 0)
+            return rTronco * 1.7f;
+
+        float p80 = Percentil(radios, 0.80f);
+        float p95 = Percentil(radios, 0.95f);
+        return Mathf.Max(p95 * 1.06f, p80 * 1.18f, rTronco * 1.55f);
     }
 
     static void RecolectarPuntosTronco(GameObject go, List<Vector3> puntos)
@@ -862,7 +887,7 @@ public static class AmbienteTerreno
     {
         if (mesh == null || mesh.vertexCount == 0)
             return;
-        if (host.name == "TroncoCollider")
+        if (host.name == "TroncoCollider" || host.name == "RaizCollider")
             return;
         if (EsFollaje(host.name) && !EsCorteza(host.name))
             return;
@@ -948,12 +973,14 @@ public static class AmbienteTerreno
         return values[i];
     }
 
-    static void AplicarCapsulaTronco(GameObject go, Bounds world, bool arbusto)
+    static void AplicarCapsulaTronco(GameObject go, Bounds world, bool arbusto, float radioRaiz)
     {
         var hijos = go.GetComponentsInChildren<Transform>(true);
         for (int i = hijos.Length - 1; i >= 0; i--)
         {
-            if (hijos[i] != null && hijos[i] != go.transform && hijos[i].name == "TroncoCollider")
+            if (hijos[i] == null || hijos[i] == go.transform)
+                continue;
+            if (hijos[i].name == "TroncoCollider" || hijos[i].name == "RaizCollider")
                 Object.DestroyImmediate(hijos[i].gameObject);
         }
 
@@ -985,6 +1012,25 @@ public static class AmbienteTerreno
         float sxz = Mathf.Max(Mathf.Abs(ls.x), Mathf.Abs(ls.z), 1e-4f);
         cap.height = worldH / sy;
         cap.radius = worldR / sxz;
+
+        if (!arbusto)
+            AplicarColliderRaiz(go, world.center.x, world.center.z, world.min.y, radioRaiz);
+    }
+
+    static void AplicarColliderRaiz(GameObject go, float cx, float cz, float yMin, float radioMundo)
+    {
+        float r = Mathf.Clamp(radioMundo, 0.28f, 2.45f);
+        var host = new GameObject("RaizCollider");
+        host.transform.SetParent(go.transform, false);
+
+        var esfera = host.AddComponent<SphereCollider>();
+        esfera.isTrigger = false;
+        var centro = new Vector3(cx, yMin + r * 0.42f, cz);
+        esfera.center = host.transform.InverseTransformPoint(centro);
+
+        var ls = host.transform.lossyScale;
+        float s = Mathf.Max(Mathf.Abs(ls.x), Mathf.Abs(ls.y), Mathf.Abs(ls.z), 1e-4f);
+        esfera.radius = r / s;
     }
 
     static void DesactivarMeshCollidersHojas(GameObject go)
