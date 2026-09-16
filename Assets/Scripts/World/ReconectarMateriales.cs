@@ -145,11 +145,13 @@ public static class ReconectarMateriales
             if (renderer.GetComponentInParent<Canvas>() != null)
                 continue;
 
-            if (EsGeometriaAyuda(renderer))
+            if (EsGeometriaAyuda(renderer, root))
             {
                 renderer.enabled = false;
                 continue;
             }
+
+            renderer.enabled = true;
 
             var shared = renderer.sharedMaterials;
             if (shared == null || shared.Length == 0)
@@ -619,25 +621,80 @@ public static class ReconectarMateriales
             && (c.maxColorComponent - Mathf.Min(c.r, Mathf.Min(c.g, c.b))) < 0.08f;
     }
 
-    static bool EsNombreAyudaMax(string nombre)
+    static bool EsNombreCuerpoMike(string nombre)
     {
-        return Contiene(nombre, "Circle") || Contiene(nombre, "NGon")
-            || Contiene(nombre, "IK") || Contiene(nombre, "Dummy");
+        if (string.IsNullOrEmpty(nombre))
+            return false;
+        return string.Equals(nombre, "Mike", StringComparison.OrdinalIgnoreCase)
+            || nombre.StartsWith("Mike@", StringComparison.OrdinalIgnoreCase);
     }
 
-    static bool EsGeometriaAyuda(Renderer renderer)
+    static bool TokenSinLetrasVecinas(string nombre, string token)
+    {
+        if (string.IsNullOrEmpty(nombre) || string.IsNullOrEmpty(token))
+            return false;
+
+        int start = 0;
+        while (start <= nombre.Length - token.Length)
+        {
+            int at = nombre.IndexOf(token, start, StringComparison.OrdinalIgnoreCase);
+            if (at < 0)
+                return false;
+            bool izq = at == 0 || !char.IsLetter(nombre[at - 1]);
+            int fin = at + token.Length;
+            bool der = fin >= nombre.Length || !char.IsLetter(nombre[fin]);
+            if (izq && der)
+                return true;
+            start = at + 1;
+        }
+
+        return false;
+    }
+
+    static bool EsNombreAyudaMax(string nombre)
+    {
+        if (string.IsNullOrEmpty(nombre) || EsNombreCuerpoMike(nombre))
+            return false;
+        return Contiene(nombre, "Circle") || Contiene(nombre, "NGon")
+            || Contiene(nombre, "Line") || Contiene(nombre, "Dummy")
+            || TokenSinLetrasVecinas(nombre, "IK"); // not a substring: "Mike" contains "ik"
+    }
+
+    static int ConteoVertices(Renderer renderer)
+    {
+        var mesh = MeshDe(renderer);
+        return mesh != null ? mesh.vertexCount : 0;
+    }
+
+    static bool EsGeometriaAyuda(Renderer renderer, GameObject root)
     {
         if (renderer == null)
             return false;
 
-        var nombre = renderer.gameObject.name;
-        if (EsNombreAyudaMax(nombre))
+        var go = renderer.gameObject;
+        if (root != null && go == root)
+            return false;
+
+        var nombre = go.name;
+        if (EsNombreCuerpoMike(nombre))
+            return false;
+
+        int verts = ConteoVertices(renderer);
+        if (verts > 100)
+            return false;
+
+        if (renderer is SkinnedMeshRenderer)
+            return false;
+
+        if (Contiene(nombre, "NGon") || Contiene(nombre, "Line"))
+            return verts <= 2;
+
+        if (Contiene(nombre, "Circle") || Contiene(nombre, "Dummy")
+            || TokenSinLetrasVecinas(nombre, "IK"))
             return true;
 
         // 3ds Max Biped viewport meshes: octahedron on Bip003 (COM / pelvis) plus boxes on limbs.
-        if (renderer is SkinnedMeshRenderer)
-            return false;
-        return Contiene(nombre, "Bip");
+        return Contiene(nombre, "Bip") && verts <= 100;
     }
 
     static Material AsegurarOjo(Material ojo)
