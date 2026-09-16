@@ -338,7 +338,10 @@ public static class AmbienteTerreno
 
     static void ColocarVegetacion()
     {
-        PoblarVegetacion(AsegurarPadreVegetacion());
+        var padre = BuscarPadreVegetacion();
+        if (padre == null)
+            padre = new GameObject("Bosque").transform;
+        PoblarVegetacion(padre);
     }
 
     public static int PoblarVegetacionConAltura(Transform padre)
