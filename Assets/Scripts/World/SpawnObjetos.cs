@@ -329,8 +329,23 @@ public class SpawnObjetos : MonoBehaviour
         PintarProp(go, tag, color);
         AjustarTamano(go, altoObjetivo, forzarAlto, fallback, color);
         ColocarSobreSuelo(go, position);
+        if (tag == "Ducha")
+            go = EnvolverSinRotacion(go);
         AsegurarTrigger(go);
         return go;
+    }
+
+    static GameObject EnvolverSinRotacion(GameObject modelo)
+    {
+        var wrap = new GameObject(modelo.name);
+        wrap.tag = modelo.tag;
+        wrap.layer = modelo.layer;
+        wrap.transform.position = modelo.transform.position;
+        wrap.transform.rotation = Quaternion.identity;
+        wrap.transform.localScale = Vector3.one;
+        modelo.transform.SetParent(wrap.transform, true);
+        modelo.name = "Modelo";
+        return wrap;
     }
 
     static void QuitarAnimator(GameObject go)
@@ -540,26 +555,40 @@ public class SpawnObjetos : MonoBehaviour
     static void AsegurarTrigger(GameObject go)
     {
         bool puerta = go.CompareTag("Puerta");
+        bool ducha = go.CompareTag("Ducha");
         QuitarColliders(go);
         if (puerta)
             AsegurarColliderSolidoPuerta(go);
 
         var b = BoundsDe(go);
-        float padXz = puerta ? 0.8f : 0.5f;
-        float minXz = puerta ? 2.4f : 0.85f;
-        float minY = puerta ? 3.2f : 0.7f;
+        float padXz = (puerta || ducha) ? 0.8f : 0.5f;
+        float minXz = puerta ? 2.4f : (ducha ? 2.2f : 0.85f);
+        float minY = puerta ? 3.2f : (ducha ? 2.8f : 0.7f);
         float sx = Mathf.Max(b.size.x + padXz * 2f, minXz);
         float sy = Mathf.Max(b.size.y + 0.5f, minY);
         float sz = Mathf.Max(b.size.z + padXz * 2f, minXz);
-        if (puerta)
+        if (puerta || ducha)
         {
-            // Keep a thick catch volume in front/around the slab so the
-            // CharacterController can win without clipping through wood.
+            // Keep a thick catch volume around the FBX slab so the
+            // CharacterController can win without tunneling through a
+            // paper-thin wall (door) or stall backboard (shower).
             const float profundidad = 2.4f;
             if (b.size.x <= b.size.z)
-                sx = Mathf.Max(b.size.x + profundidad, 2.4f);
+                sx = Mathf.Max(b.size.x + profundidad, minXz);
             else
-                sz = Mathf.Max(b.size.z + profundidad, 2.4f);
+                sz = Mathf.Max(b.size.z + profundidad, minXz);
+        }
+
+        var centro = new Vector3(b.center.x, b.min.y + sy * 0.5f, b.center.z);
+        if (ducha)
+        {
+            var cabeza = BuscarHijo(go.transform, "Cylinder001");
+            if (cabeza != null)
+            {
+                var rb = cabeza.GetComponent<Renderer>();
+                var c = rb != null ? rb.bounds.center : cabeza.position;
+                centro = new Vector3(c.x, b.min.y + sy * 0.5f, c.z);
+            }
         }
 
         var t = go.transform.Find("Trigger");
@@ -579,7 +608,7 @@ public class SpawnObjetos : MonoBehaviour
         // sized from world AABB / lossyScale on the root is paper-thin and
         // CharacterController never fires OnTriggerEnter.
         t.SetParent(null);
-        t.position = new Vector3(b.center.x, b.min.y + sy * 0.5f, b.center.z);
+        t.position = centro;
         t.rotation = Quaternion.identity;
         t.localScale = Vector3.one;
         t.SetParent(go.transform, true);

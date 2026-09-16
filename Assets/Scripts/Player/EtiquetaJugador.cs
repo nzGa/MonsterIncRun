@@ -12,10 +12,10 @@ public class EtiquetaJugador : MonoBehaviour
         var holder = new GameObject("NombreChip");
         holder.transform.SetParent(transform, false);
 
-        float y = 2.18f;
+        float y = 1.72f;
         var rend = GetComponentInChildren<Renderer>();
         if (rend != null)
-            y = rend.bounds.max.y - transform.position.y + 0.16f;
+            y = rend.bounds.max.y - transform.position.y - 0.28f;
         holder.transform.localPosition = new Vector3(0f, y, 0f);
         holder.transform.localScale = Vector3.one * 0.0046f;
 
