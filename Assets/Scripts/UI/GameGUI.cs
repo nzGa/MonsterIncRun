@@ -45,6 +45,7 @@ public class GameGUI : MonoBehaviour
     Text _mensaje;
     Text _textoHasGanado;
     Text _timer;
+    Text _nombreHud;
     Canvas _hud;
     string _textoMensaje;
     Color _colorMensaje = Color.white;
@@ -83,6 +84,7 @@ public class GameGUI : MonoBehaviour
             ConstruirHud();
 
         ActualizarTimer();
+        ActualizarNombreHud();
         ActualizarInventario();
         ActualizarAvisosTiempo();
         CapturarMensaje();
@@ -105,6 +107,18 @@ public class GameGUI : MonoBehaviour
             else if (canvas.name == "MonsterHudCanvas" && canvas != _hud)
                 Destroy(canvas.gameObject);
         }
+    }
+
+    void ActualizarNombreHud()
+    {
+        if (_nombreHud == null)
+            return;
+
+        string n = "Mike";
+        if (GestionaMultiJugador.Instancia != null && !string.IsNullOrEmpty(GestionaMultiJugador.Instancia.nombreJugador))
+            n = GestionaMultiJugador.Instancia.nombreJugador;
+        _nombreHud.text = n;
+        _nombreHud.gameObject.SetActive(!EtiquetaJugador.ChipMundoListo);
     }
 
     void ActualizarTimer()
@@ -331,6 +345,14 @@ public class GameGUI : MonoBehaviour
         _timer.rectTransform.offsetMin = new Vector2(8f, 4f);
         _timer.rectTransform.offsetMax = new Vector2(-8f, -4f);
         _timer.horizontalOverflow = HorizontalWrapMode.Overflow;
+
+        _nombreHud = UiFactory.AddText(barra.transform, "Nombre", "Mike", 22, TextAnchor.MiddleLeft, new Color(0.96f, 0.98f, 0.94f, 1f), true, FontStyle.Bold);
+        _nombreHud.rectTransform.anchorMin = new Vector2(0f, 0.5f);
+        _nombreHud.rectTransform.anchorMax = new Vector2(0f, 0.5f);
+        _nombreHud.rectTransform.pivot = new Vector2(0f, 0.5f);
+        _nombreHud.rectTransform.anchoredPosition = new Vector2(24f, 0f);
+        _nombreHud.rectTransform.sizeDelta = new Vector2(360f, 48f);
+        _nombreHud.horizontalOverflow = HorizontalWrapMode.Overflow;
 
         const float slot = 76f;
         const float gap = 8f;

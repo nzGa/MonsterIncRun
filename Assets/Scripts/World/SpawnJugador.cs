@@ -33,6 +33,7 @@ public class SpawnJugador : MonoBehaviour
 
         player.name = "Mike";
         player.tag = "Player";
+        player.layer = 0;
 
         if (!player.TryGetComponent(out CharacterController cc))
             cc = player.AddComponent<CharacterController>();
@@ -65,13 +66,14 @@ public class SpawnJugador : MonoBehaviour
             player.AddComponent<EtiquetaJugador>();
 
         var manager = GameObject.FindGameObjectWithTag("GameManager");
-        if (manager != null)
-        {
-            var multi = manager.GetComponent<GestionaMultiJugador>();
-            var nombre = player.GetComponent<NombreJugador>();
-            nombre.nombreJugador = multi != null ? multi.nombreJugador : "Mike";
-            nombre.fNombreSeteado = true;
-        }
+        var multi = manager != null ? manager.GetComponent<GestionaMultiJugador>() : GestionaMultiJugador.Instancia;
+        var nombreVisible = multi != null && !string.IsNullOrEmpty(multi.nombreJugador) ? multi.nombreJugador : "Mike";
+        var nombre = player.GetComponent<NombreJugador>();
+        nombre.nombreJugador = nombreVisible;
+        nombre.fNombreSeteado = true;
+        var etiqueta = player.GetComponent<EtiquetaJugador>();
+        if (etiqueta != null)
+            etiqueta.nombreJugador = nombreVisible;
     }
 
     public static void PuntoSpawn(out Vector3 pos, out Quaternion rot)
