@@ -36,6 +36,8 @@ No existen en la escena hasta que los horneás. Con **Play apagado**:
 
 En Play el juego usa esos objetos y no duplica. Si vaciás el padre, vuelve a spawnear desde `originalTrees.bytes`.
 
+El **terreno** se hornea igual: **Monster Inc Run → Bake Terrain Into Scene** → `Entorno/Terreno` (visible con Play apagado). En Play no se duplica si ya está en la escena.
+
 ## Cómo se juega
 
 Hasta **5 jugadores**. Las reglas son simples:
