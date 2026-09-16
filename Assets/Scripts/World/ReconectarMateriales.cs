@@ -74,8 +74,9 @@ public static class ReconectarMateriales
                     if (chim != null)
                         reemplazo = chim;
                 }
-                else if (EsPipeNombrado(renderer) || Contiene(NombreMaterial(actual), "pipe")
-                    || EsCerca(actual, renderer) || PareceTuboPorMalla(renderer))
+                else if (!EsPisoOParedFabrica(actual)
+                    && (EsPipeNombrado(renderer) || Contiene(NombreMaterial(actual), "pipe")
+                    || EsCerca(actual, renderer) || PareceTuboPorMalla(renderer)))
                 {
                     var forzado = MaterialTuberia(EsPipe2(actual, renderer));
                     if (forzado != null)
@@ -830,28 +831,29 @@ public static class ReconectarMateriales
         {
             if (renderer == null || renderer is ParticleSystemRenderer || renderer.GetComponent<TextMesh>() != null)
                 continue;
-            if (EsVidrioNombrado(renderer.sharedMaterial, renderer) || EsTorre(renderer.sharedMaterial, renderer))
-                continue;
-            if (!EsTuberia(renderer.sharedMaterial, renderer) && !EsCerca(renderer.sharedMaterial, renderer))
-                continue;
-
-            var mat = MaterialTuberia(EsPipe2(renderer.sharedMaterial, renderer));
-            if (mat == null)
-                continue;
-
-            PintarTuberia(mat, EsPipe2(renderer.sharedMaterial, renderer) ? ColorPipe2 : ColorPipe1);
-
             var shared = renderer.sharedMaterials;
             if (shared == null || shared.Length == 0)
-            {
-                renderer.sharedMaterial = mat;
                 continue;
+
+            Material[] siguiente = null;
+            for (int i = 0; i < shared.Length; i++)
+            {
+                if (EsPisoOParedFabrica(shared[i]) || EsVidrioNombrado(shared[i], renderer) || EsTorre(shared[i], renderer))
+                    continue;
+                if (!EsNombreTuberia(NombreMaterial(shared[i])) && !EsCerca(shared[i], renderer) && !EsPipeNombrado(renderer))
+                    continue;
+
+                var mat = MaterialTuberia(EsPipe2(shared[i], renderer));
+                if (mat == null)
+                    continue;
+                PintarTuberia(mat, EsPipe2(shared[i], renderer) ? ColorPipe2 : ColorPipe1);
+                if (siguiente == null)
+                    siguiente = (Material[])shared.Clone();
+                siguiente[i] = mat;
             }
 
-            var siguiente = new Material[shared.Length];
-            for (int i = 0; i < shared.Length; i++)
-                siguiente[i] = mat;
-            renderer.sharedMaterials = siguiente;
+            if (siguiente != null)
+                renderer.sharedMaterials = siguiente;
         }
     }
 
@@ -868,22 +870,26 @@ public static class ReconectarMateriales
         {
             if (renderer == null || renderer is ParticleSystemRenderer || renderer.GetComponent<TextMesh>() != null)
                 continue;
-            if (!EsTorre(renderer.sharedMaterial, renderer))
-                continue;
-
-            PintarChimenea(chim);
-
             var shared = renderer.sharedMaterials;
             if (shared == null || shared.Length == 0)
-            {
-                renderer.sharedMaterial = chim;
                 continue;
+
+            Material[] siguiente = null;
+            for (int i = 0; i < shared.Length; i++)
+            {
+                if (EsPisoOParedFabrica(shared[i]) || EsVidrioNombrado(shared[i], renderer))
+                    continue;
+                if (!EsTorre(shared[i], renderer))
+                    continue;
+
+                PintarChimenea(chim);
+                if (siguiente == null)
+                    siguiente = (Material[])shared.Clone();
+                siguiente[i] = chim;
             }
 
-            var siguiente = new Material[shared.Length];
-            for (int i = 0; i < shared.Length; i++)
-                siguiente[i] = chim;
-            renderer.sharedMaterials = siguiente;
+            if (siguiente != null)
+                renderer.sharedMaterials = siguiente;
         }
     }
 
@@ -934,20 +940,21 @@ public static class ReconectarMateriales
         }
     }
 
-    // fabrica.FBX ground/ground1/ground3 share one UV (a single texel), so albedo looks untextured.
-    // ground1 is the raised apron between the building and the 80x80 tiled Suelo.
+    // Non_subD ground1 is the raised apron between the factory wall and the 80x80 Suelo.
+    // Its FBX UV is a single texel, so albedo looks like a flat gray slab until we project world XZ.
+    static Material _delantalLive;
+
     static void RepararUvPisoFabrica(GameObject root)
     {
         if (root == null)
             return;
 
+        var delantal = MaterialDelantal();
         foreach (var filter in root.GetComponentsInChildren<MeshFilter>(true))
         {
             var renderer = filter != null ? filter.GetComponent<MeshRenderer>() : null;
             var mesh = filter != null ? filter.sharedMesh : null;
-            if (renderer == null || mesh == null || !mesh.isReadable)
-                continue;
-            if (!string.IsNullOrEmpty(mesh.name) && mesh.name.EndsWith("_PisoUV", StringComparison.Ordinal))
+            if (renderer == null || mesh == null)
                 continue;
 
             var mats = renderer.sharedMaterials;
@@ -955,22 +962,38 @@ public static class ReconectarMateriales
                 continue;
 
             int subCount = Mathf.Min(mesh.subMeshCount, mats.Length);
-            bool hayPiso = false;
-            for (int i = 0; i < subCount; i++)
+            bool hayDelantal = false;
+            var siguiente = (Material[])mats.Clone();
+            for (int i = 0; i < siguiente.Length; i++)
             {
-                if (EsPisoFbx(NombreMaterial(mats[i])))
-                {
-                    hayPiso = true;
-                    break;
-                }
+                if (!EsDelantalFabrica(NombreMaterial(siguiente[i])))
+                    continue;
+                hayDelantal = true;
+                if (delantal != null && siguiente[i] != delantal)
+                    siguiente[i] = delantal;
             }
-            if (!hayPiso)
+            if (!hayDelantal)
                 continue;
 
-            var copy = UnityEngine.Object.Instantiate(mesh);
-            copy.name = mesh.name + "_PisoUV";
-            var verts = copy.vertices;
-            var uv = copy.uv;
+            renderer.sharedMaterials = siguiente;
+            if (!string.IsNullOrEmpty(mesh.name) && mesh.name.EndsWith("_PisoUV", StringComparison.Ordinal))
+                continue;
+
+            Mesh copy;
+            Vector3[] verts;
+            Vector2[] uv;
+            try
+            {
+                copy = UnityEngine.Object.Instantiate(mesh);
+                copy.name = mesh.name + "_PisoUV";
+                verts = copy.vertices;
+                uv = copy.uv;
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+
             if (verts == null || verts.Length == 0)
             {
                 UnityEngine.Object.Destroy(copy);
@@ -980,13 +1003,21 @@ public static class ReconectarMateriales
                 uv = new Vector2[verts.Length];
 
             var xf = filter.transform;
-            const float tilesPorMetro = 0.2f;
+            const float tilesPorMetro = 0.5f;
             bool dirty = false;
             for (int s = 0; s < subCount; s++)
             {
-                if (!EsPisoFbx(NombreMaterial(mats[s])))
+                if (!EsDelantalFabrica(NombreMaterial(siguiente[s])))
                     continue;
-                var tris = copy.GetTriangles(s);
+                int[] tris;
+                try
+                {
+                    tris = copy.GetTriangles(s);
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
                 if (tris == null)
                     continue;
                 for (int t = 0; t < tris.Length; t++)
@@ -1007,13 +1038,59 @@ public static class ReconectarMateriales
             }
 
             copy.uv = uv;
+            copy.UploadMeshData(false);
             filter.sharedMesh = copy;
         }
     }
 
+    static Material MaterialDelantal()
+    {
+        var tex = TexAdoquin() ?? TexConcrete();
+        if (tex == null)
+            return _delantalLive;
+        tex.wrapMode = TextureWrapMode.Repeat;
+
+        if (_delantalLive == null)
+        {
+            var shader = Shader.Find("Legacy Shaders/Diffuse")
+                ?? Shader.Find("Diffuse")
+                ?? Shader.Find("Standard");
+            if (shader == null)
+                return null;
+            _delantalLive = new Material(shader) { name = "ground1" };
+        }
+
+        _delantalLive.mainTexture = tex;
+        _delantalLive.mainTextureScale = Vector2.one;
+        _delantalLive.mainTextureOffset = Vector2.zero;
+        if (_delantalLive.HasProperty("_Color"))
+            _delantalLive.color = Color.white;
+        if (_delantalLive.HasProperty("_Metallic"))
+            _delantalLive.SetFloat("_Metallic", 0f);
+        if (_delantalLive.HasProperty("_Glossiness"))
+            _delantalLive.SetFloat("_Glossiness", 0.12f);
+        if (_delantalLive.HasProperty("_Smoothness"))
+            _delantalLive.SetFloat("_Smoothness", 0.12f);
+        return _delantalLive;
+    }
+
+    static bool EsDelantalFabrica(string nombre)
+    {
+        return Contiene(nombre, "ground1");
+    }
+
+    static bool EsPisoOParedFabrica(Material material)
+    {
+        var nombre = NombreMaterial(material);
+        return Contiene(nombre, "ground")
+            || Contiene(nombre, "wall")
+            || Contiene(nombre, "piso")
+            || Contiene(nombre, "floor");
+    }
+
     static bool EsPisoFbx(string nombre)
     {
-        return Contiene(nombre, "ground");
+        return EsDelantalFabrica(nombre);
     }
 
     static bool EsPipe2(Material material, Renderer renderer)
@@ -1679,6 +1756,15 @@ public static class ReconectarMateriales
             || EsNombreTorre(renderer.gameObject.name) || Contiene(renderer.gameObject.name, "roof")
             || Contiene(renderer.gameObject.name, "fence"))
             return false;
+        var mats = renderer.sharedMaterials;
+        if (mats != null)
+        {
+            for (int i = 0; i < mats.Length; i++)
+            {
+                if (EsPisoOParedFabrica(mats[i]) || EsVidrioNombrado(mats[i], renderer) || EsTorre(mats[i], renderer))
+                    return false;
+            }
+        }
         if (PareceChimenea(renderer))
             return false;
 

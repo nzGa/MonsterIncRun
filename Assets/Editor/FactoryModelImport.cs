@@ -22,7 +22,7 @@ public class FactoryModelImport : AssetPostprocessor
         importer.searchTexturesGlobally = false;
         importer.animationType = ModelImporterAnimationType.None;
         importer.avatarSetup = ModelImporterAvatarSetup.NoAvatar;
-        if (EsModeloDeEntorno(assetPath))
+        if (EsModeloDeEntorno(assetPath) || EsFabrica(assetPath))
         {
             importer.indexFormat = ModelImporterIndexFormat.UInt32;
             importer.isReadable = true;
@@ -73,6 +73,99 @@ public class FactoryModelImport : AssetPostprocessor
             if (changed)
                 renderer.sharedMaterials = shared;
         }
+
+        if (EsFabrica(assetPath))
+            ProyectarUvDelantalImport(root);
+    }
+
+    static void ProyectarUvDelantalImport(GameObject root)
+    {
+        if (root == null)
+            return;
+
+        const float tilesPorMetro = 0.5f;
+        var adoquin = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/floor_adoquin.jpg")
+            ?? AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Resources/Textures/floor_adoquin.jpg")
+            ?? AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/floor_concrete.jpg");
+        if (adoquin != null)
+            adoquin.wrapMode = TextureWrapMode.Repeat;
+
+        foreach (var filter in root.GetComponentsInChildren<MeshFilter>(true))
+        {
+            var renderer = filter != null ? filter.GetComponent<MeshRenderer>() : null;
+            var mesh = filter != null ? filter.sharedMesh : null;
+            if (renderer == null || mesh == null)
+                continue;
+
+            var mats = renderer.sharedMaterials;
+            if (mats == null || mats.Length == 0)
+                continue;
+
+            int subCount = Mathf.Min(mesh.subMeshCount, mats.Length);
+            bool hay = false;
+            for (int i = 0; i < mats.Length; i++)
+            {
+                if (!EsNombreDelantal(mats[i] != null ? mats[i].name : null))
+                    continue;
+                hay = true;
+                if (adoquin != null && mats[i].HasProperty("_MainTex"))
+                {
+                    mats[i].mainTexture = adoquin;
+                    mats[i].mainTextureScale = Vector2.one;
+                    if (mats[i].HasProperty("_Color"))
+                        mats[i].color = Color.white;
+                    EditorUtility.SetDirty(mats[i]);
+                }
+            }
+            if (!hay)
+                continue;
+
+            Vector3[] verts;
+            Vector2[] uv;
+            try
+            {
+                verts = mesh.vertices;
+                uv = mesh.uv;
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+            if (verts == null || verts.Length == 0)
+                continue;
+            if (uv == null || uv.Length != verts.Length)
+                uv = new Vector2[verts.Length];
+
+            var xf = filter.transform;
+            bool dirty = false;
+            for (int s = 0; s < subCount; s++)
+            {
+                if (!EsNombreDelantal(mats[s] != null ? mats[s].name : null))
+                    continue;
+                var tris = mesh.GetTriangles(s);
+                if (tris == null)
+                    continue;
+                for (int t = 0; t < tris.Length; t++)
+                {
+                    int i = tris[t];
+                    if ((uint)i >= (uint)verts.Length)
+                        continue;
+                    var w = xf.TransformPoint(verts[i]);
+                    uv[i] = new Vector2(w.x * tilesPorMetro, w.z * tilesPorMetro);
+                    dirty = true;
+                }
+            }
+
+            if (!dirty)
+                continue;
+            mesh.uv = uv;
+        }
+    }
+
+    static bool EsNombreDelantal(string nombre)
+    {
+        return !string.IsNullOrEmpty(nombre)
+            && nombre.IndexOf("ground1", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     static bool EsModeloDeProps(string path)
@@ -87,6 +180,12 @@ public class FactoryModelImport : AssetPostprocessor
     {
         path = path.Replace('\\', '/');
         return path.StartsWith(EnvironmentFolder, StringComparison.OrdinalIgnoreCase);
+    }
+
+    static bool EsFabrica(string path)
+    {
+        path = path.Replace('\\', '/');
+        return path.IndexOf("/fabrica.", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     static Material BuscarMaterial(string name)
@@ -264,6 +363,8 @@ public class FactoryModelImport : AssetPostprocessor
                     continue;
                 bool ok = importer.materialLocation == ModelImporterMaterialLocation.InPrefab
                     && importer.animationType == ModelImporterAnimationType.None;
+                if (EsFabrica(path))
+                    ok = ok && importer.isReadable;
                 if (ok)
                     continue;
 
