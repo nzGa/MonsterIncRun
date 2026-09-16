@@ -140,12 +140,12 @@ También existe **Monster Inc Run → Bootstrap Project** (escenas de build, mat
 
 La carpeta `legacy/` (Standard Assets, Terrain binario, prefabs y scripts `.js` de Unity 4) **no se importaba** (estaba fuera de `Assets/`) y se sacó del árbol activo para aligerar el repo.
 
-Sigue en el historial de git, por ejemplo en `origin/master` antes de este cambio:
+Sigue en el historial de git (último commit que aún la tenía: `79fa273`):
 
 ```bash
-git show origin/master:legacy/
-# o recuperar un archivo puntual:
-git checkout <commit-que-tenia-legacy> -- legacy/
+git show 79fa273:legacy/
+# o recuperar la carpeta entera:
+git checkout 79fa273 -- legacy/
 ```
 
 No borra el historial: `git log -- legacy/` sigue mostrando esos commits.
