@@ -145,7 +145,7 @@ public static class ReconectarMateriales
             if (renderer.GetComponentInParent<Canvas>() != null)
                 continue;
 
-            if (EsSplineAyuda(renderer))
+            if (EsGeometriaAyuda(renderer))
             {
                 renderer.enabled = false;
                 continue;
@@ -619,12 +619,25 @@ public static class ReconectarMateriales
             && (c.maxColorComponent - Mathf.Min(c.r, Mathf.Min(c.g, c.b))) < 0.08f;
     }
 
-    static bool EsSplineAyuda(Renderer renderer)
+    static bool EsNombreAyudaMax(string nombre)
     {
-        if (renderer == null || renderer is SkinnedMeshRenderer)
+        return Contiene(nombre, "Circle") || Contiene(nombre, "NGon")
+            || Contiene(nombre, "IK") || Contiene(nombre, "Dummy");
+    }
+
+    static bool EsGeometriaAyuda(Renderer renderer)
+    {
+        if (renderer == null)
             return false;
+
         var nombre = renderer.gameObject.name;
-        return Contiene(nombre, "Circle") || Contiene(nombre, "NGon");
+        if (EsNombreAyudaMax(nombre))
+            return true;
+
+        // 3ds Max Biped viewport meshes: octahedron on Bip003 (COM / pelvis) plus boxes on limbs.
+        if (renderer is SkinnedMeshRenderer)
+            return false;
+        return Contiene(nombre, "Bip");
     }
 
     static Material AsegurarOjo(Material ojo)
@@ -688,8 +701,8 @@ public static class ReconectarMateriales
         var nombre = renderer.gameObject.name;
         if (EsNombreOjo(nombre))
             return false;
-        if (Contiene(nombre, "Circle") || Contiene(nombre, "NGon"))
-            return true;
+        if (EsNombreAyudaMax(nombre))
+            return false;
         return Contiene(nombre, "Sphere") || Contiene(nombre, "Body");
     }
 
