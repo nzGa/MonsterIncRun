@@ -25,6 +25,17 @@ Hecho con:
 
 Si un FBX no escala bien, el juego usa una cápsula o primitivas para no bloquear el Play.
 
+## Mover árboles y rocas
+
+No existen en la escena hasta que los horneás. Con **Play apagado**:
+
+1. Abrí `Assets/Scenes/Mike_Juego`.
+2. Menú **Monster Inc Run → Bake Trees And Rocks Into Scene**.
+3. Quedan bajo `Entorno/ArbolesYRocas`. Seleccioná uno y **W** para mover.
+4. **Ctrl+S** (Mac: **Cmd+S**) guarda la escena. Esas posiciones quedan para siempre.
+
+En Play el juego usa esos objetos y no duplica. Si vaciás el padre, vuelve a spawnear desde `originalTrees.bytes`.
+
 ## Cómo se juega
 
 Hasta **5 jugadores**. Las reglas son simples:
