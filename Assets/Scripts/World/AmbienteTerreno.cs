@@ -10,6 +10,9 @@ public static class AmbienteTerreno
     const float RadioFabricaLibre = 22f;
     const float TerrenoY = -0.02f;
     public const float YCaida = -5f;
+    public const string NombreRaizEntorno = "Entorno";
+    public const string NombrePadreVegetacion = "ArbolesYRocas";
+    public const string NombreObjetoTerreno = "Terreno";
 
     static Material _tronco;
     static Material _hojas;
@@ -23,44 +26,152 @@ public static class AmbienteTerreno
         if (viejoCesped != null)
             Object.Destroy(viejoCesped);
 
-        if (Terrain.activeTerrain == null)
+        if (!HayTerrenoEnEscena())
+            CrearTerrenoRuntime();
+
+        try
         {
-            var data = new TerrainData
-            {
-                heightmapResolution = Resolucion,
-                size = new Vector3(Ancho, AltoOriginal, Largo),
-                alphamapResolution = 256,
-                baseMapResolution = 256
-            };
-
-            if (!AplicarHeightmapOriginal(data))
-                GenerarColinasAlrededor(data);
-
-            AplicarCapas(data);
-            PintarLaderas(data);
-
-            var go = Terrain.CreateTerrainGameObject(data);
-            go.name = "Terreno";
-            go.transform.position = OrigenTerreno();
-
-            var terrain = go.GetComponent<Terrain>();
-            terrain.heightmapPixelError = 8f;
-            terrain.basemapDistance = 180f;
-            terrain.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
-            terrain.drawInstanced = true;
-            terrain.Flush();
-
-            try
-            {
-                ColocarVegetacion(terrain);
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning("AmbienteTerreno vegetacion: " + e.Message);
-            }
+            if (!HayVegetacionEnEscena())
+                ColocarVegetacion();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning("AmbienteTerreno vegetacion: " + e.Message);
         }
 
         CrearLimites();
+    }
+
+    public static bool HayTerrenoEnEscena()
+    {
+        return BuscarTerreno() != null;
+    }
+
+    public static Terrain BuscarTerreno()
+    {
+        var entorno = GameObject.Find(NombreRaizEntorno);
+        if (entorno != null)
+        {
+            var hijo = entorno.transform.Find(NombreObjetoTerreno);
+            if (hijo != null)
+            {
+                var t = hijo.GetComponent<Terrain>();
+                if (t != null && t.terrainData != null)
+                    return t;
+            }
+        }
+
+        var plano = GameObject.Find(NombreObjetoTerreno);
+        if (plano != null)
+        {
+            var t = plano.GetComponent<Terrain>();
+            if (t != null && t.terrainData != null)
+                return t;
+        }
+
+        var activo = Terrain.activeTerrain;
+        if (activo != null && activo.terrainData != null)
+            return activo;
+
+        return null;
+    }
+
+    public static bool HayVegetacionEnEscena()
+    {
+        var padre = BuscarPadreVegetacion();
+        return padre != null && padre.childCount > 0;
+    }
+
+    public static Transform BuscarPadreVegetacion()
+    {
+        var entorno = GameObject.Find(NombreRaizEntorno);
+        if (entorno != null)
+        {
+            var hijo = entorno.transform.Find(NombrePadreVegetacion);
+            if (hijo != null)
+                return hijo;
+        }
+
+        var plano = GameObject.Find(NombrePadreVegetacion);
+        return plano != null ? plano.transform : null;
+    }
+
+    public static Transform AsegurarRaizEntorno()
+    {
+        var entorno = GameObject.Find(NombreRaizEntorno);
+        if (entorno == null)
+            entorno = new GameObject(NombreRaizEntorno);
+        return entorno.transform;
+    }
+
+    public static Transform AsegurarPadreVegetacion()
+    {
+        var entorno = AsegurarRaizEntorno();
+        var padre = entorno.Find(NombrePadreVegetacion);
+        if (padre == null)
+        {
+            var go = new GameObject(NombrePadreVegetacion);
+            go.transform.SetParent(entorno, false);
+            padre = go.transform;
+        }
+
+        return padre;
+    }
+
+    static void CrearTerrenoRuntime()
+    {
+        var data = NuevoTerrainData();
+        RellenarTerrainData(data);
+        MontarTerrenoEnEscena(data, AsegurarRaizEntorno());
+    }
+
+    static TerrainData NuevoTerrainData()
+    {
+        return new TerrainData
+        {
+            heightmapResolution = Resolucion,
+            size = new Vector3(Ancho, AltoOriginal, Largo),
+            alphamapResolution = 256,
+            baseMapResolution = 256
+        };
+    }
+
+    static void RellenarTerrainData(TerrainData data)
+    {
+        data.heightmapResolution = Resolucion;
+        data.size = new Vector3(Ancho, AltoOriginal, Largo);
+        data.alphamapResolution = 256;
+        data.baseMapResolution = 256;
+
+        if (!AplicarHeightmapOriginal(data))
+            GenerarColinasAlrededor(data);
+
+        AplicarCapas(data);
+        PintarLaderas(data);
+    }
+
+    static Terrain MontarTerrenoEnEscena(TerrainData data, Transform padre)
+    {
+        var go = Terrain.CreateTerrainGameObject(data);
+        go.name = NombreObjetoTerreno;
+        if (padre != null)
+            go.transform.SetParent(padre, true);
+        go.transform.position = OrigenTerreno();
+
+        var terrain = go.GetComponent<Terrain>();
+        ConfigurarComponenteTerreno(terrain);
+        return terrain;
+    }
+
+    static void ConfigurarComponenteTerreno(Terrain terrain)
+    {
+        if (terrain == null)
+            return;
+        terrain.heightmapPixelError = 8f;
+        terrain.basemapDistance = 180f;
+        terrain.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+        terrain.drawInstanced = true;
+        terrain.Flush();
     }
 
     static Vector3 OrigenTerreno()
@@ -75,7 +186,7 @@ public static class AmbienteTerreno
 
     public static Bounds BoundsJugables()
     {
-        var terrain = Terrain.activeTerrain;
+        var terrain = BuscarTerreno();
         if (terrain != null && terrain.terrainData != null)
         {
             var pos = terrain.transform.position;
@@ -140,10 +251,61 @@ public static class AmbienteTerreno
 
     public static float AlturaEn(Vector3 mundo)
     {
-        var terrain = Terrain.activeTerrain;
-        if (terrain == null)
+        var terrain = BuscarTerreno();
+        if (terrain != null)
+            return terrain.SampleHeight(mundo) + terrain.transform.position.y;
+        return AlturaDesdeHeightmap(mundo);
+    }
+
+    static float AlturaDesdeHeightmap(Vector3 mundo)
+    {
+        var heights = HeightmapCache();
+        if (heights == null)
             return 0f;
-        return terrain.SampleHeight(mundo) + terrain.transform.position.y;
+
+        var origen = OrigenTerreno();
+        float u = Mathf.Clamp01((mundo.x - origen.x) / Ancho);
+        float v = Mathf.Clamp01((mundo.z - origen.z) / Largo);
+        float fx = u * (Resolucion - 1);
+        float fz = v * (Resolucion - 1);
+        int x0 = Mathf.FloorToInt(fx);
+        int z0 = Mathf.FloorToInt(fz);
+        int x1 = Mathf.Min(x0 + 1, Resolucion - 1);
+        int z1 = Mathf.Min(z0 + 1, Resolucion - 1);
+        float tx = fx - x0;
+        float tz = fz - z0;
+        float h = Mathf.Lerp(
+            Mathf.Lerp(heights[z0, x0], heights[z0, x1], tx),
+            Mathf.Lerp(heights[z1, x0], heights[z1, x1], tx),
+            tz);
+        return TerrenoY + h * AltoOriginal;
+    }
+
+    static float[,] _heightmapCache;
+
+    static float[,] HeightmapCache()
+    {
+        if (_heightmapCache != null)
+            return _heightmapCache;
+
+        var raw = Resources.Load<TextAsset>("Terrain/originalHeightmap");
+        if (raw == null || raw.bytes == null || raw.bytes.Length < Resolucion * Resolucion * 2)
+            return null;
+
+        var bytes = raw.bytes;
+        _heightmapCache = new float[Resolucion, Resolucion];
+        int i = 0;
+        for (int z = 0; z < Resolucion; z++)
+        {
+            for (int x = 0; x < Resolucion; x++)
+            {
+                ushort h = (ushort)(bytes[i] | (bytes[i + 1] << 8));
+                i += 2;
+                _heightmapCache[z, x] = h / 65535f;
+            }
+        }
+
+        return _heightmapCache;
     }
 
     static bool AplicarHeightmapOriginal(TerrainData data)
@@ -245,19 +407,67 @@ public static class AmbienteTerreno
         data.SetAlphamaps(0, 0, map);
     }
 
-    static void ColocarVegetacion(Terrain terrain)
+    static void ColocarVegetacion()
     {
-        var padre = new GameObject("Bosque");
+        var padre = BuscarPadreVegetacion();
+        if (padre == null)
+            padre = new GameObject("Bosque").transform;
+        PoblarVegetacion(padre);
+    }
+
+    public static int PoblarVegetacionConAltura(Transform padre)
+    {
+        GameObject temporal = null;
+        try
+        {
+            if (!HayTerrenoEnEscena())
+                temporal = CrearTerrenoSoloAltura();
+            return PoblarVegetacion(padre);
+        }
+        finally
+        {
+            if (temporal != null)
+            {
+                var terrain = temporal.GetComponent<Terrain>();
+                var data = terrain != null ? terrain.terrainData : null;
+                Object.DestroyImmediate(temporal);
+                if (data != null)
+                    Object.DestroyImmediate(data);
+            }
+        }
+    }
+
+    static GameObject CrearTerrenoSoloAltura()
+    {
+        var data = new TerrainData
+        {
+            heightmapResolution = Resolucion,
+            size = new Vector3(Ancho, AltoOriginal, Largo)
+        };
+        data.hideFlags = HideFlags.HideAndDontSave;
+        if (!AplicarHeightmapOriginal(data))
+            GenerarColinasAlrededor(data);
+
+        var go = Terrain.CreateTerrainGameObject(data);
+        go.name = "TerrenoBakeTemporal";
+        go.hideFlags = HideFlags.HideAndDontSave;
+        go.transform.position = OrigenTerreno();
+        return go;
+    }
+
+    public static int PoblarVegetacion(Transform padre)
+    {
         var raw = Resources.Load<TextAsset>("Terrain/originalTrees");
         int colocados = 0;
         if (raw != null && raw.bytes != null && raw.bytes.Length >= 4)
-            colocados = ColocarArbolesOriginales(terrain, padre.transform, raw.bytes);
+            colocados = ColocarArbolesOriginales(padre, raw.bytes);
 
         if (colocados < 40)
-            ColocarArbolesRespaldo(terrain, padre.transform);
+            ColocarArbolesRespaldo(padre);
+        return padre.childCount;
     }
 
-    static int ColocarArbolesOriginales(Terrain terrain, Transform padre, byte[] bytes)
+    static int ColocarArbolesOriginales(Transform padre, byte[] bytes)
     {
         int count = System.BitConverter.ToInt32(bytes, 0);
         int offset = 4;
@@ -317,7 +527,7 @@ public static class AmbienteTerreno
         return ok;
     }
 
-    static void ColocarArbolesRespaldo(Terrain terrain, Transform padre)
+    static void ColocarArbolesRespaldo(Transform padre)
     {
         var rng = new System.Random(46);
         for (int i = 0; i < 120; i++)
@@ -355,7 +565,7 @@ public static class AmbienteTerreno
             inst.name = "Arbol";
             AplicarMaterialesArbol(inst);
             foreach (var anim in inst.GetComponentsInChildren<Animator>(true))
-                Object.Destroy(anim);
+                Destruir(anim);
             NormalizarMesh(inst, 11f);
             AsegurarColliderTronco(inst);
             return inst;
@@ -586,6 +796,24 @@ public static class AmbienteTerreno
             AsegurarColliderRoca(go);
         else
             AsegurarColliderTronco(wrapper);
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+            UnityEditor.Undo.RegisterCreatedObjectUndo(wrapper, "Bake Trees And Rocks");
+#endif
+    }
+
+    static void Destruir(Object obj)
+    {
+        if (obj == null)
+            return;
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            Object.DestroyImmediate(obj);
+            return;
+        }
+#endif
+        Object.Destroy(obj);
     }
 
     static void SentarEnSuelo(GameObject go, Vector3 destino)
@@ -598,7 +826,7 @@ public static class AmbienteTerreno
     static void NormalizarMesh(GameObject go, float altoObjetivo)
     {
         foreach (var anim in go.GetComponentsInChildren<Animator>(true))
-            Object.Destroy(anim);
+            Destruir(anim);
         foreach (var r in go.GetComponentsInChildren<Renderer>(true))
             r.enabled = true;
 
@@ -630,12 +858,16 @@ public static class AmbienteTerreno
     static Material TroncoMat()
     {
         if (_tronco == null)
+            _tronco = Resources.Load<Material>("Environment/Materials/TroncoTerreno");
+        if (_tronco == null)
             _tronco = MatDifuso("TroncoTerreno", CargarTex("Environment/BigTreeBark", null), new Color(0.38f, 0.24f, 0.12f));
         return _tronco;
     }
 
     static Material HojasMat()
     {
+        if (_hojas == null)
+            _hojas = Resources.Load<Material>("Environment/Materials/HojasTerreno");
         if (_hojas == null)
             _hojas = MatCorte("HojasTerreno", CargarTex("Environment/BigTree", null), new Color(0.22f, 0.42f, 0.14f));
         return _hojas;
@@ -644,12 +876,16 @@ public static class AmbienteTerreno
     static Material PalmeraMat()
     {
         if (_palmera == null)
+            _palmera = Resources.Load<Material>("Environment/Materials/PalmaTerreno");
+        if (_palmera == null)
             _palmera = MatDifuso("PalmaTerreno", CargarTex("Environment/PalmBark", null), new Color(0.45f, 0.32f, 0.16f));
         return _palmera;
     }
 
     static Material PalmeraHojasMat()
     {
+        if (_palmeraHojas == null)
+            _palmeraHojas = Resources.Load<Material>("Environment/Materials/PalmaHojas");
         if (_palmeraHojas == null)
             _palmeraHojas = MatCorte("PalmaHojas", CargarTex("Environment/PalmBranch", null), new Color(0.20f, 0.48f, 0.16f));
         return _palmeraHojas;
@@ -1095,6 +1331,10 @@ public static class AmbienteTerreno
         if (_roca != null)
             return _roca;
 
+        _roca = Resources.Load<Material>("Environment/Materials/RocaTerreno");
+        if (_roca != null)
+            return _roca;
+
         var tex = CargarTex("Textures/Cliff", "Assets/Art/Textures/Cliff (Layered Rock).jpg")
             ?? CargarTex("Textures/Cliff", "Assets/Resources/Textures/Cliff.jpg");
         var shader = Shader.Find("Standard")
@@ -1169,4 +1409,138 @@ public static class AmbienteTerreno
 #endif
         return tex;
     }
+
+    public static void InvalidarCacheMateriales()
+    {
+        _tronco = null;
+        _hojas = null;
+        _palmera = null;
+        _palmeraHojas = null;
+        _roca = null;
+    }
+
+#if UNITY_EDITOR
+    const string CarpetaTerrainAssets = "Assets/Resources/Terrain";
+    const string PathTerrainData = CarpetaTerrainAssets + "/MikeJuegoTerrain.asset";
+    const string PathLayerCesped = CarpetaTerrainAssets + "/LayerCesped.terrainlayer";
+    const string PathLayerAcantilado = CarpetaTerrainAssets + "/LayerAcantilado.terrainlayer";
+
+    public static void AsegurarMaterialesPersistentes()
+    {
+        InvalidarCacheMateriales();
+        var _ = TroncoMat();
+        _ = HojasMat();
+        _ = PalmeraMat();
+        _ = PalmeraHojasMat();
+        _ = RocaMat();
+
+        const string env = "Assets/Resources/Environment";
+        const string folder = env + "/Materials";
+        if (!UnityEditor.AssetDatabase.IsValidFolder(env))
+            UnityEditor.AssetDatabase.CreateFolder("Assets/Resources", "Environment");
+        if (!UnityEditor.AssetDatabase.IsValidFolder(folder))
+            UnityEditor.AssetDatabase.CreateFolder(env, "Materials");
+
+        _tronco = PersistirMaterial(_tronco, folder + "/TroncoTerreno.mat");
+        _hojas = PersistirMaterial(_hojas, folder + "/HojasTerreno.mat");
+        _palmera = PersistirMaterial(_palmera, folder + "/PalmaTerreno.mat");
+        _palmeraHojas = PersistirMaterial(_palmeraHojas, folder + "/PalmaHojas.mat");
+        _roca = PersistirMaterial(_roca, folder + "/RocaTerreno.mat");
+        UnityEditor.AssetDatabase.SaveAssets();
+    }
+
+    static Material PersistirMaterial(Material mat, string path)
+    {
+        if (mat == null)
+            return null;
+        if (!string.IsNullOrEmpty(UnityEditor.AssetDatabase.GetAssetPath(mat)))
+            return mat;
+
+        var existing = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (existing != null)
+            return existing;
+
+        UnityEditor.AssetDatabase.CreateAsset(mat, path);
+        return mat;
+    }
+
+    /// <summary>
+    /// Creates or replaces Entorno/Terreno with the same heightmap/splat as Play,
+    /// saving TerrainData + layers as assets so they persist with the scene.
+    /// </summary>
+    public static Terrain BakeTerrenoPersistente()
+    {
+        var entorno = AsegurarRaizEntorno();
+        var existente = BuscarTerreno();
+        if (existente != null)
+        {
+            UnityEditor.Undo.DestroyObjectImmediate(existente.gameObject);
+        }
+        else
+        {
+            var huerfano = entorno.Find(NombreObjetoTerreno);
+            if (huerfano != null)
+                UnityEditor.Undo.DestroyObjectImmediate(huerfano.gameObject);
+        }
+
+        if (!UnityEditor.AssetDatabase.IsValidFolder(CarpetaTerrainAssets))
+            UnityEditor.AssetDatabase.CreateFolder("Assets/Resources", "Terrain");
+
+        BorrarAssetSiExiste(PathTerrainData);
+        BorrarAssetSiExiste(PathLayerCesped);
+        BorrarAssetSiExiste(PathLayerAcantilado);
+
+        var data = NuevoTerrainData();
+        UnityEditor.AssetDatabase.CreateAsset(data, PathTerrainData);
+
+        if (!AplicarHeightmapOriginal(data))
+            GenerarColinasAlrededor(data);
+
+        var layers = CrearCapasPersistentes();
+        data.terrainLayers = layers;
+        PintarLaderas(data);
+        UnityEditor.EditorUtility.SetDirty(data);
+
+        var terrain = MontarTerrenoEnEscena(data, entorno);
+        UnityEditor.Undo.RegisterCreatedObjectUndo(terrain.gameObject, "Bake Terrain");
+        UnityEditor.AssetDatabase.SaveAssets();
+        return terrain;
+    }
+
+    static TerrainLayer[] CrearCapasPersistentes()
+    {
+        var cesped = CargarTex("Textures/GrassHill", "Assets/Art/Textures/Grass (Hill).psd")
+            ?? CargarTex("Textures/GrassHill", "Assets/Resources/Textures/GrassHill.psd");
+        var acantilado = CargarTex("Textures/Cliff", "Assets/Art/Textures/Cliff (Layered Rock).jpg");
+
+        var grass = new TerrainLayer
+        {
+            diffuseTexture = cesped,
+            tileSize = new Vector2(12f, 12f),
+            metallic = 0f,
+            smoothness = 0f,
+            specular = Color.black,
+            diffuseRemapMin = new Vector4(0.06f, 0.08f, 0.04f, 0f),
+            diffuseRemapMax = new Vector4(0.86f, 0.90f, 0.72f, 1f)
+        };
+        var cliff = new TerrainLayer
+        {
+            diffuseTexture = acantilado,
+            tileSize = new Vector2(18f, 18f),
+            metallic = 0f,
+            smoothness = 0.04f,
+            specular = new Color(0.08f, 0.08f, 0.08f, 1f)
+        };
+
+        UnityEditor.AssetDatabase.CreateAsset(grass, PathLayerCesped);
+        UnityEditor.AssetDatabase.CreateAsset(cliff, PathLayerAcantilado);
+        return new[] { grass, cliff };
+    }
+
+    static void BorrarAssetSiExiste(string path)
+    {
+        if (UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path) != null)
+            UnityEditor.AssetDatabase.DeleteAsset(path);
+    }
+#endif
 }
