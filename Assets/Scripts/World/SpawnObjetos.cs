@@ -620,6 +620,7 @@ public class SpawnObjetos : MonoBehaviour
             return;
 
         QuitarColliders(wrap);
+        AsegurarColliderSolidoDucha(wrap);
 
         var lluvia = BuscarHijo(wrap.transform, "Lluvia");
         var cabeza = BuscarHijo(wrap.transform, "Cylinder001");
@@ -671,6 +672,134 @@ public class SpawnObjetos : MonoBehaviour
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
         host.AddComponent<DuchaTrigger>();
+    }
+
+    static void AsegurarColliderSolidoDucha(GameObject wrap)
+    {
+        bool hayMadera = false;
+        foreach (var filter in wrap.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (filter == null || filter.sharedMesh == null)
+                continue;
+            if (!EsMaderaDucha(filter.gameObject.name))
+                continue;
+
+            if (!filter.gameObject.TryGetComponent(out MeshCollider col))
+                col = filter.gameObject.AddComponent<MeshCollider>();
+            col.sharedMesh = filter.sharedMesh;
+            col.convex = false;
+            col.isTrigger = false;
+            hayMadera = true;
+            AgregarCajasMaderaDucha(filter);
+        }
+
+        if (hayMadera)
+            return;
+
+        var b = BoundsDe(wrap);
+        if (!wrap.TryGetComponent(out BoxCollider caja))
+            caja = wrap.AddComponent<BoxCollider>();
+        var ls = wrap.transform.lossyScale;
+        caja.center = wrap.transform.InverseTransformPoint(b.center);
+        caja.size = new Vector3(
+            b.size.x / Mathf.Max(Mathf.Abs(ls.x), 1e-4f),
+            b.size.y / Mathf.Max(Mathf.Abs(ls.y), 1e-4f),
+            b.size.z / Mathf.Max(Mathf.Abs(ls.z), 1e-4f));
+        caja.isTrigger = false;
+    }
+
+    static void AgregarCajasMaderaDucha(MeshFilter filter)
+    {
+        var mesh = filter.sharedMesh;
+        if (mesh == null || !mesh.isReadable)
+            return;
+
+        var verts = mesh.vertices;
+        var tris = mesh.triangles;
+        if (verts == null || tris == null || tris.Length < 3)
+            return;
+
+        var tr = filter.transform;
+        var paredes = new System.Collections.Generic.List<Bounds>();
+        var suelos = new System.Collections.Generic.List<Bounds>();
+
+        for (int i = 0; i + 2 < tris.Length; i += 3)
+        {
+            var a = verts[tris[i]];
+            var b = verts[tris[i + 1]];
+            var c = verts[tris[i + 2]];
+            var min = Vector3.Min(a, Vector3.Min(b, c));
+            var max = Vector3.Max(a, Vector3.Max(b, c));
+            var local = new Bounds(
+                (min + max) * 0.5f,
+                Vector3.Max(max - min, new Vector3(0.02f, 0.02f, 0.02f)));
+
+            var wa = tr.TransformPoint(a);
+            var wb = tr.TransformPoint(b);
+            var wc = tr.TransformPoint(c);
+            var wmin = Vector3.Min(wa, Vector3.Min(wb, wc));
+            var wmax = Vector3.Max(wa, Vector3.Max(wb, wc));
+            var wsize = wmax - wmin;
+            if (wsize.y > 0.8f && Mathf.Min(wsize.x, wsize.z) < 0.45f)
+                paredes.Add(local);
+            else if (wsize.y < 0.35f && Mathf.Max(wsize.x, wsize.z) > 0.6f)
+                suelos.Add(local);
+        }
+
+        FusionarBoundsCercanos(paredes, 0.08f);
+        FusionarBoundsCercanos(suelos, 0.08f);
+
+        for (int i = 0; i < paredes.Count; i++)
+            AgregarCajaSolidaDucha(filter.gameObject, paredes[i], 0.28f);
+        for (int i = 0; i < suelos.Count; i++)
+            AgregarCajaSolidaDucha(filter.gameObject, suelos[i], 0.12f);
+    }
+
+    static void FusionarBoundsCercanos(System.Collections.Generic.List<Bounds> lista, float pad)
+    {
+        bool cambio = true;
+        while (cambio)
+        {
+            cambio = false;
+            for (int i = 0; i < lista.Count; i++)
+            {
+                for (int j = i + 1; j < lista.Count; j++)
+                {
+                    var a = lista[i];
+                    a.Expand(pad);
+                    if (!a.Intersects(lista[j]))
+                        continue;
+                    var m = lista[i];
+                    m.Encapsulate(lista[j]);
+                    lista[i] = m;
+                    lista.RemoveAt(j);
+                    cambio = true;
+                    break;
+                }
+                if (cambio)
+                    break;
+            }
+        }
+    }
+
+    static void AgregarCajaSolidaDucha(GameObject go, Bounds local, float grosorMundo)
+    {
+        var box = go.AddComponent<BoxCollider>();
+        box.isTrigger = false;
+        var size = local.size;
+        var ls = go.transform.lossyScale;
+        float wx = size.x * Mathf.Max(Mathf.Abs(ls.x), 1e-4f);
+        float wy = size.y * Mathf.Max(Mathf.Abs(ls.y), 1e-4f);
+        float wz = size.z * Mathf.Max(Mathf.Abs(ls.z), 1e-4f);
+        if (wx <= wy && wx <= wz && wx < grosorMundo)
+            size.x = grosorMundo / Mathf.Max(Mathf.Abs(ls.x), 1e-4f);
+        else if (wy <= wz && wy < grosorMundo)
+            size.y = grosorMundo / Mathf.Max(Mathf.Abs(ls.y), 1e-4f);
+        else if (wz < grosorMundo)
+            size.z = grosorMundo / Mathf.Max(Mathf.Abs(ls.z), 1e-4f);
+
+        box.center = local.center;
+        box.size = size;
     }
 
     static void AsegurarColliderSolidoPuerta(GameObject go)
