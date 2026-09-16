@@ -502,6 +502,7 @@ PlayerSettings:
   hmiLogStartupTiming: 0
   hmiCpuConfiguration: 
   apiCompatibilityLevel: 6
+  # Keep Input Manager (WASD). Unity 6 nags about deprecation; do not switch to Input System.
   activeInputHandler: 0
   windowsGamepadBackendHint: 0
   cloudProjectId: 

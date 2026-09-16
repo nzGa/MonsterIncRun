@@ -112,15 +112,21 @@ public class GestionaMultiJugador : MonoBehaviour
 
         var panel = UiFactory.AddPanel(_pauseRoot.transform, "Panel", new Vector2(0.34f, 0.28f), new Vector2(0.66f, 0.72f), new Color(0.06f, 0.08f, 0.06f, 0.94f));
 
-        var titulo = UiFactory.AddText(panel.transform, "Titulo", "Pausa", 40, TextAnchor.UpperCenter, Color.white, true, FontStyle.Bold);
-        titulo.rectTransform.anchorMin = new Vector2(0.08f, 0.78f);
-        titulo.rectTransform.anchorMax = new Vector2(0.92f, 0.96f);
-        UiFactory.Stretch(titulo.rectTransform);
+        var titulo = UiFactory.AddText(panel.transform, "Titulo", "Pausa", 40, TextAnchor.MiddleCenter, Color.white, true, FontStyle.Bold);
+        var tituloRt = titulo.rectTransform;
+        tituloRt.anchorMin = new Vector2(0.08f, 0.84f);
+        tituloRt.anchorMax = new Vector2(0.92f, 0.98f);
+        tituloRt.offsetMin = Vector2.zero;
+        tituloRt.offsetMax = Vector2.zero;
+        titulo.verticalOverflow = VerticalWrapMode.Truncate;
 
-        var hint = UiFactory.AddText(panel.transform, "Hint", "Esc para continuar", 18, TextAnchor.UpperCenter, new Color(1f, 1f, 1f, 0.7f), true);
-        hint.rectTransform.anchorMin = new Vector2(0.08f, 0.68f);
-        hint.rectTransform.anchorMax = new Vector2(0.92f, 0.80f);
-        UiFactory.Stretch(hint.rectTransform);
+        var hint = UiFactory.AddText(panel.transform, "Hint", "Esc para continuar", 18, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f), true);
+        var hintRt = hint.rectTransform;
+        hintRt.anchorMin = new Vector2(0.08f, 0.72f);
+        hintRt.anchorMax = new Vector2(0.92f, 0.84f);
+        hintRt.offsetMin = Vector2.zero;
+        hintRt.offsetMax = Vector2.zero;
+        hint.verticalOverflow = VerticalWrapMode.Truncate;
 
         var volver = UiFactory.AddButton(panel.transform, "Volver", "Volver al juego", new Vector2(0, 20), new Vector2(320, 56));
         volver.onClick.AddListener(() =>
@@ -131,7 +137,7 @@ public class GestionaMultiJugador : MonoBehaviour
             AplicarCursor();
         });
 
-        var menu = UiFactory.AddButton(panel.transform, "Menu", "Menu principal", new Vector2(0, -50), new Vector2(320, 56));
+        var menu = UiFactory.AddButton(panel.transform, "Menu", "Menú principal", new Vector2(0, -50), new Vector2(320, 56));
         menu.onClick.AddListener(() =>
         {
             cursorBloqueado = false;
