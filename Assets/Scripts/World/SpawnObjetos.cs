@@ -86,6 +86,7 @@ public class SpawnObjetos : MonoBehaviour
 
         ReconectarMateriales.En(instance);
         AsegurarColisionFabrica(instance);
+        AmbienteVisual.AsegurarSondaReflexion(instance);
     }
 
     static void AsegurarColisionFabrica(GameObject fabrica)
@@ -141,15 +142,36 @@ public class SpawnObjetos : MonoBehaviour
 
         if (GameObject.FindGameObjectsWithTag("SpawnTubo").Length == 0)
         {
-            CrearPunto("SpawnTubo1", "SpawnTubo", new Vector3(4, 1, -6));
-            CrearPunto("SpawnTubo2", "SpawnTubo", new Vector3(-6, 1, 4));
-            CrearPunto("SpawnTubo3", "SpawnTubo", new Vector3(10, 1, 2));
+            var tubos = new[]
+            {
+                new Vector3(4f, 1f, -6f),
+                new Vector3(-6f, 1f, 4f),
+                new Vector3(10f, 1f, 2f),
+                new Vector3(-12f, 1f, -8f),
+                new Vector3(14f, 1f, 12f),
+                new Vector3(-18f, 1f, 10f),
+                new Vector3(8f, 1f, -16f),
+                new Vector3(-4f, 1f, 16f),
+                new Vector3(18f, 1f, -4f)
+            };
+            for (int i = 0; i < tubos.Length; i++)
+                CrearPunto("SpawnTubo" + (i + 1), "SpawnTubo", tubos[i]);
         }
         if (GameObject.FindGameObjectsWithTag("SpawnCaja").Length == 0)
         {
-            CrearPunto("SpawnCaja1", "SpawnCaja", new Vector3(-3, 1, -8));
-            CrearPunto("SpawnCaja2", "SpawnCaja", new Vector3(6, 1, -2));
-            CrearPunto("SpawnCaja3", "SpawnCaja", new Vector3(-8, 1, -2));
+            var cajas = new[]
+            {
+                new Vector3(-3f, 1f, -8f),
+                new Vector3(6f, 1f, -2f),
+                new Vector3(-8f, 1f, -2f),
+                new Vector3(12f, 1f, 8f),
+                new Vector3(-14f, 1f, 6f),
+                new Vector3(2f, 1f, 14f),
+                new Vector3(-10f, 1f, -14f),
+                new Vector3(16f, 1f, -10f)
+            };
+            for (int i = 0; i < cajas.Length; i++)
+                CrearPunto("SpawnCaja" + (i + 1), "SpawnCaja", cajas[i]);
         }
         if (GameObject.FindGameObjectsWithTag("SpawnMike").Length == 0)
             CrearPunto("SpawnMike", "SpawnMike", new Vector3(0, 1, -14));
@@ -183,10 +205,11 @@ public class SpawnObjetos : MonoBehaviour
 
     void SpawnTubos()
     {
-        foreach (var spawnPoint in GameObject.FindGameObjectsWithTag("SpawnTubo"))
+        var posiciones = ElegirPosiciones("SpawnTubo", 3, 8f, 22f, 6.5f);
+        for (int i = 0; i < posiciones.Count; i++)
         {
             var go = Instanciar("Tubo", "Tubo", tubo, "Models/tubo", "Assets/Resources/Models/tubo.FBX",
-                spawnPoint.transform.position, PrimitiveType.Capsule, new Color(1f, 0.85f, 0.1f), 1.15f, false);
+                posiciones[i], PrimitiveType.Capsule, new Color(1f, 0.85f, 0.1f), 1.15f, false);
             if (go.GetComponent<Rotar>() == null)
                 go.AddComponent<Rotar>();
         }
@@ -194,12 +217,79 @@ public class SpawnObjetos : MonoBehaviour
 
     void SpawnCajas()
     {
-        foreach (var spawnPoint in GameObject.FindGameObjectsWithTag("SpawnCaja"))
+        var posiciones = ElegirPosiciones("SpawnCaja", 3, 7f, 20f, 5.5f);
+        for (int i = 0; i < posiciones.Count; i++)
         {
             var go = Instanciar("Caja", "Caja", caja, "Models/caja", "Assets/Resources/Models/caja.FBX",
-                spawnPoint.transform.position, PrimitiveType.Cube, new Color(0.8f, 0.2f, 0.2f), 0.95f, false);
+                posiciones[i], PrimitiveType.Cube, new Color(0.8f, 0.2f, 0.2f), 0.95f, false);
             if (go.GetComponent<ContenidoCaja>() == null)
                 go.AddComponent<ContenidoCaja>();
+        }
+    }
+
+    static System.Collections.Generic.List<Vector3> ElegirPosiciones(
+        string tag, int cantidad, float minR, float maxR, float minDist)
+    {
+        var candidatos = new System.Collections.Generic.List<Vector3>();
+        var puntos = GameObject.FindGameObjectsWithTag(tag);
+        for (int i = 0; i < puntos.Length; i++)
+        {
+            if (puntos[i] != null)
+                candidatos.Add(OffsetAleatorio(puntos[i].transform.position, 1.5f, 6f));
+        }
+
+        while (candidatos.Count < cantidad + 6)
+            candidatos.Add(PosicionAnillo(minR, maxR));
+
+        Barajar(candidatos);
+
+        var elegidos = new System.Collections.Generic.List<Vector3>();
+        for (int i = 0; i < candidatos.Count && elegidos.Count < cantidad; i++)
+        {
+            var p = candidatos[i];
+            bool lejos = true;
+            for (int j = 0; j < elegidos.Count; j++)
+            {
+                var d = elegidos[j] - p;
+                d.y = 0f;
+                if (d.sqrMagnitude < minDist * minDist)
+                {
+                    lejos = false;
+                    break;
+                }
+            }
+            if (lejos)
+                elegidos.Add(p);
+        }
+
+        while (elegidos.Count < cantidad)
+            elegidos.Add(PosicionAnillo(minR, maxR));
+
+        return elegidos;
+    }
+
+    static Vector3 PosicionAnillo(float minR, float maxR)
+    {
+        float ang = UnityEngine.Random.Range(0f, 360f) * Mathf.Deg2Rad;
+        float r = UnityEngine.Random.Range(minR, maxR);
+        return new Vector3(Mathf.Cos(ang) * r, 1f, Mathf.Sin(ang) * r);
+    }
+
+    static Vector3 OffsetAleatorio(Vector3 origen, float min, float max)
+    {
+        float ang = UnityEngine.Random.Range(0f, 360f) * Mathf.Deg2Rad;
+        float r = UnityEngine.Random.Range(min, max);
+        return origen + new Vector3(Mathf.Cos(ang) * r, 0f, Mathf.Sin(ang) * r);
+    }
+
+    static void Barajar(System.Collections.Generic.List<Vector3> lista)
+    {
+        for (int i = lista.Count - 1; i > 0; i--)
+        {
+            int j = UnityEngine.Random.Range(0, i + 1);
+            var tmp = lista[i];
+            lista[i] = lista[j];
+            lista[j] = tmp;
         }
     }
 
@@ -249,7 +339,7 @@ public class SpawnObjetos : MonoBehaviour
         {
             anim.enabled = false;
             anim.runtimeAnimatorController = null;
-            Object.Destroy(anim);
+            UnityEngine.Object.Destroy(anim);
         }
     }
 
@@ -351,7 +441,7 @@ public class SpawnObjetos : MonoBehaviour
             var rend = dummy.GetComponent<Renderer>();
             if (rend != null)
                 rend.material.color = color;
-            Object.Destroy(dummy.GetComponent<Collider>());
+            UnityEngine.Object.Destroy(dummy.GetComponent<Collider>());
             b = BoundsDe(go);
         }
 
@@ -449,21 +539,103 @@ public class SpawnObjetos : MonoBehaviour
 
     static void AsegurarTrigger(GameObject go)
     {
+        bool puerta = go.CompareTag("Puerta");
+        QuitarColliders(go);
+        if (puerta)
+            AsegurarColliderSolidoPuerta(go);
+
         var b = BoundsDe(go);
-        var box = go.GetComponent<BoxCollider>();
-        if (box == null)
-            box = go.AddComponent<BoxCollider>();
+        float padXz = puerta ? 0.8f : 0.5f;
+        float minXz = puerta ? 2.4f : 0.85f;
+        float minY = puerta ? 3.2f : 0.7f;
+        float sx = Mathf.Max(b.size.x + padXz * 2f, minXz);
+        float sy = Mathf.Max(b.size.y + 0.5f, minY);
+        float sz = Mathf.Max(b.size.z + padXz * 2f, minXz);
+        if (puerta)
+        {
+            // Keep a thick catch volume in front/around the slab so the
+            // CharacterController can win without clipping through wood.
+            const float profundidad = 2.4f;
+            if (b.size.x <= b.size.z)
+                sx = Mathf.Max(b.size.x + profundidad, 2.4f);
+            else
+                sz = Mathf.Max(b.size.z + profundidad, 2.4f);
+        }
 
-        var lossy = go.transform.lossyScale;
+        var t = go.transform.Find("Trigger");
+        GameObject host;
+        if (t == null)
+        {
+            host = new GameObject("Trigger");
+            t = host.transform;
+        }
+        else
+            host = t.gameObject;
+
+        host.layer = go.layer;
+        host.tag = go.tag;
+
+        // World-aligned trigger. FBX roots are often rotated -90°, so a box
+        // sized from world AABB / lossyScale on the root is paper-thin and
+        // CharacterController never fires OnTriggerEnter.
+        t.SetParent(null);
+        t.position = new Vector3(b.center.x, b.min.y + sy * 0.5f, b.center.z);
+        t.rotation = Quaternion.identity;
+        t.localScale = Vector3.one;
+        t.SetParent(go.transform, true);
+
+        if (!host.TryGetComponent(out BoxCollider box))
+            box = host.AddComponent<BoxCollider>();
+
+        var ls = t.lossyScale;
+        box.center = Vector3.zero;
         box.size = new Vector3(
-            SafeDiv(b.size.x, lossy.x),
-            SafeDiv(b.size.y, lossy.y),
-            SafeDiv(b.size.z, lossy.z));
-        box.center = go.transform.InverseTransformPoint(b.center);
+            sx / Mathf.Max(Mathf.Abs(ls.x), 1e-4f),
+            sy / Mathf.Max(Mathf.Abs(ls.y), 1e-4f),
+            sz / Mathf.Max(Mathf.Abs(ls.z), 1e-4f));
         box.isTrigger = true;
+    }
 
-        foreach (var childCol in go.GetComponentsInChildren<Collider>(true))
-            childCol.isTrigger = true;
+    static void AsegurarColliderSolidoPuerta(GameObject go)
+    {
+        bool hayMalla = false;
+        foreach (var filter in go.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (filter == null || filter.sharedMesh == null)
+                continue;
+            if (filter.gameObject.name == "Trigger")
+                continue;
+
+            var col = filter.gameObject.AddComponent<MeshCollider>();
+            col.sharedMesh = filter.sharedMesh;
+            col.convex = false;
+            col.isTrigger = false;
+            hayMalla = true;
+        }
+
+        if (hayMalla)
+            return;
+
+        var b = BoundsDe(go);
+        if (!go.TryGetComponent(out BoxCollider caja))
+            caja = go.AddComponent<BoxCollider>();
+        var ls = go.transform.lossyScale;
+        caja.center = go.transform.InverseTransformPoint(b.center);
+        caja.size = new Vector3(
+            b.size.x / Mathf.Max(Mathf.Abs(ls.x), 1e-4f),
+            b.size.y / Mathf.Max(Mathf.Abs(ls.y), 1e-4f),
+            b.size.z / Mathf.Max(Mathf.Abs(ls.z), 1e-4f));
+        caja.isTrigger = false;
+    }
+
+    static void QuitarColliders(GameObject go)
+    {
+        var cols = go.GetComponentsInChildren<Collider>(true);
+        for (int i = cols.Length - 1; i >= 0; i--)
+        {
+            if (cols[i] != null)
+                UnityEngine.Object.DestroyImmediate(cols[i]);
+        }
     }
 
     static float SafeDiv(float a, float b)

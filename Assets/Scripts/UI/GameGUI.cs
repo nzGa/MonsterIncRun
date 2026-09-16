@@ -43,7 +43,7 @@ public class GameGUI : MonoBehaviour
     Image _veloFinal;
     Image _panelMensaje;
     Text _mensaje;
-    Text _nombre;
+    Text _textoHasGanado;
     Text _timer;
     Canvas _hud;
     string _textoMensaje;
@@ -82,7 +82,6 @@ public class GameGUI : MonoBehaviour
         if (_hud == null)
             ConstruirHud();
 
-        ActualizarNombre();
         ActualizarTimer();
         ActualizarInventario();
         ActualizarAvisosTiempo();
@@ -99,27 +98,13 @@ public class GameGUI : MonoBehaviour
             var canvas = canvases[i];
             if (canvas == null || canvas == _hud)
                 continue;
+            if (canvas.renderMode == RenderMode.WorldSpace)
+                continue;
             if (canvas.name == "TimerCanvas" || canvas.name == "HudCanvas")
                 Destroy(canvas.gameObject);
+            else if (canvas.name == "MonsterHudCanvas" && canvas != _hud)
+                Destroy(canvas.gameObject);
         }
-    }
-
-    void ActualizarNombre()
-    {
-        if (_nombre == null)
-            return;
-        _nombre.text = NombreVisible();
-    }
-
-    static string NombreVisible()
-    {
-        if (GestionaMultiJugador.Instancia != null && !string.IsNullOrEmpty(GestionaMultiJugador.Instancia.nombreJugador))
-            return GestionaMultiJugador.Instancia.nombreJugador;
-
-        var nj = FindAnyObjectByType<NombreJugador>();
-        if (nj != null && !string.IsNullOrEmpty(nj.nombreJugador))
-            return nj.nombreJugador;
-        return "Mike";
     }
 
     void ActualizarTimer()
@@ -297,8 +282,13 @@ public class GameGUI : MonoBehaviour
             _imgGanaste.enabled = gano;
         if (_imgPerdiste != null)
             _imgPerdiste.enabled = perdio;
+        if (_textoHasGanado != null)
+        {
+            _textoHasGanado.enabled = gano;
+            _textoHasGanado.gameObject.SetActive(gano);
+        }
         if (_veloFinal != null)
-            _veloFinal.enabled = gano || perdio;
+            _veloFinal.enabled = false;
     }
 
     void LimpiarFlags()
@@ -318,47 +308,32 @@ public class GameGUI : MonoBehaviour
 
     void ConstruirHud()
     {
-        var leftover = GameObject.Find("HudCanvas");
+        var         leftover = GameObject.Find("HudCanvas");
         if (leftover != null)
             DestroyImmediate(leftover);
         leftover = GameObject.Find("TimerCanvas");
         if (leftover != null)
             DestroyImmediate(leftover);
+        leftover = GameObject.Find("MonsterHudCanvas");
+        if (leftover != null)
+            DestroyImmediate(leftover);
 
-        _hud = UiFactory.CreateCanvas("HudCanvas", 30);
+        _hud = UiFactory.CreateCanvas("MonsterHudCanvas", 80);
         var canvas = _hud.transform;
 
-        var barra = UiFactory.AddTopBar(canvas, "BarraSuperior", 118f, new Color(0.03f, 0.05f, 0.04f, 0.88f));
+        var barra = UiFactory.AddTopBar(canvas, "BarraSuperior", 96f, new Color(0.02f, 0.03f, 0.03f, 0.82f));
 
-        var chip = UiFactory.AddPanelFixed(barra.transform, "Jugador", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(18f, 0f), new Vector2(300f, 86f), new Color(0.08f, 0.12f, 0.08f, 0.95f));
-        var avatar = UiFactory.AddImageFixed(chip.transform, "Avatar", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(10f, 0f), new Vector2(64f, 64f), Color.white);
-        avatar.preserveAspect = true;
-        var texMike = UiFactory.LoadSprite("UI/icono_mike_sullivan");
-        if (texMike != null)
-            avatar.sprite = texMike;
+        var timerPanel = UiFactory.AddPanelFixed(barra.transform, "Timer", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(280f, 76f), new Color(0.06f, 0.09f, 0.06f, 0.95f));
 
-        _nombre = UiFactory.AddText(chip.transform, "Nombre", "Mike", 36, TextAnchor.MiddleLeft, Color.white, true, FontStyle.Bold);
-        _nombre.rectTransform.anchorMin = Vector2.zero;
-        _nombre.rectTransform.anchorMax = Vector2.one;
-        _nombre.rectTransform.offsetMin = new Vector2(84f, 8f);
-        _nombre.rectTransform.offsetMax = new Vector2(-12f, -8f);
-
-        var timerPanel = UiFactory.AddPanelFixed(barra.transform, "Timer", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(280f, 90f), new Color(0.08f, 0.12f, 0.08f, 0.95f));
-        var timerLabel = UiFactory.AddText(timerPanel.transform, "Etiqueta", "TIEMPO", 18, TextAnchor.UpperCenter, new Color(1f, 1f, 1f, 0.75f), true, FontStyle.Bold);
-        timerLabel.rectTransform.anchorMin = new Vector2(0.08f, 0.55f);
-        timerLabel.rectTransform.anchorMax = new Vector2(0.92f, 0.95f);
-        timerLabel.rectTransform.offsetMin = Vector2.zero;
-        timerLabel.rectTransform.offsetMax = Vector2.zero;
-
-        _timer = UiFactory.AddText(timerPanel.transform, "Valor", "15:00", 48, TextAnchor.LowerCenter, Color.white, true, FontStyle.Bold);
-        _timer.rectTransform.anchorMin = new Vector2(0.06f, 0.04f);
-        _timer.rectTransform.anchorMax = new Vector2(0.94f, 0.62f);
-        _timer.rectTransform.offsetMin = Vector2.zero;
-        _timer.rectTransform.offsetMax = Vector2.zero;
+        _timer = UiFactory.AddText(timerPanel.transform, "Valor", "15:00", 44, TextAnchor.MiddleCenter, Color.white, true, FontStyle.Bold);
+        _timer.rectTransform.anchorMin = Vector2.zero;
+        _timer.rectTransform.anchorMax = Vector2.one;
+        _timer.rectTransform.offsetMin = new Vector2(8f, 4f);
+        _timer.rectTransform.offsetMax = new Vector2(-8f, -4f);
         _timer.horizontalOverflow = HorizontalWrapMode.Overflow;
 
-        const float slot = 92f;
-        const float gap = 10f;
+        const float slot = 76f;
+        const float gap = 8f;
         _slotZapato = Slot.Crear(barra.transform, "Zapato", "UI/zapato", "Zapato", -24f - 3f * (slot + gap), slot);
         _slotZoquete = Slot.Crear(barra.transform, "Zoquete", "UI/zoquete", "Media", -24f - 2f * (slot + gap), slot);
         _slotCasco = Slot.Crear(barra.transform, "Casco", "UI/casco", "Casco", -24f - 1f * (slot + gap), slot);
@@ -374,13 +349,30 @@ public class GameGUI : MonoBehaviour
         _veloFinal = UiFactory.AddImage(canvas, "VeloFinal", Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.42f));
         _veloFinal.enabled = false;
 
-        _imgGanaste = Banner(canvas, "Ganaste", "UI/ganaste");
-        _imgPerdiste = Banner(canvas, "Perdiste", "UI/perdiste");
+        _imgGanaste = BannerEsquina(canvas, "Ganaste", "UI/ganaste");
+        _imgPerdiste = BannerEsquina(canvas, "Perdiste", "UI/perdiste");
+
+        _textoHasGanado = UiFactory.AddText(canvas, "HasGanado", "Has ganado", 72, TextAnchor.MiddleCenter, UiFactory.Oro, true, FontStyle.Bold);
+        _textoHasGanado.rectTransform.anchorMin = new Vector2(0.5f, 0.62f);
+        _textoHasGanado.rectTransform.anchorMax = new Vector2(0.5f, 0.62f);
+        _textoHasGanado.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        _textoHasGanado.rectTransform.anchoredPosition = Vector2.zero;
+        _textoHasGanado.rectTransform.sizeDelta = new Vector2(980f, 130f);
+        _textoHasGanado.horizontalOverflow = HorizontalWrapMode.Overflow;
+        _textoHasGanado.enabled = false;
+        _textoHasGanado.gameObject.SetActive(false);
     }
 
-    static Image Banner(Transform parent, string name, string resource)
+    static Image BannerEsquina(Transform parent, string name, string resource)
     {
-        var img = UiFactory.AddImage(parent, name, new Vector2(0.28f, 0.32f), new Vector2(0.72f, 0.78f), Color.white);
+        var img = UiFactory.AddImageFixed(
+            parent,
+            name,
+            new Vector2(1f, 0f),
+            new Vector2(1f, 0f),
+            new Vector2(-24f, 24f),
+            new Vector2(300f, 340f),
+            Color.white);
         img.preserveAspect = true;
         img.sprite = UiFactory.LoadSprite(resource);
         img.enabled = false;

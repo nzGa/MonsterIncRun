@@ -86,13 +86,6 @@ public class GestionaMultiJugador : MonoBehaviour
     public void AplicarCursor()
     {
         bool capturar = QuiereCapturarCursor();
-        if (Application.isEditor)
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-            return;
-        }
-
         Cursor.lockState = capturar ? CursorLockMode.Locked : CursorLockMode.None;
         Cursor.visible = !capturar;
     }
@@ -147,7 +140,7 @@ public class GestionaMultiJugador : MonoBehaviour
         });
 
         var salir = UiFactory.AddButton(panel.transform, "Salir", "Salir", new Vector2(0, -120), new Vector2(320, 56));
-        salir.onClick.AddListener(Application.Quit);
+        salir.onClick.AddListener(UiFactory.Salir);
 
         _pauseRoot.SetActive(false);
     }

@@ -14,6 +14,15 @@ public static class UiFactory
 
     static Sprite _rounded;
 
+    public static void Salir()
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+
     public static Canvas CreateCanvas(string name, int sortOrder)
     {
         var root = new GameObject(name);

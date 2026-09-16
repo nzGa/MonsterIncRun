@@ -10,18 +10,24 @@ public class ThirdPersonController : MonoBehaviour
     public AnimationClip winAnimation;
     public AnimationClip loseAnimation;
 
-    public float walkMaxAnimationSpeed = 1.1f;
+    public float walkMaxAnimationSpeed = 1.05f;
     public float trotMaxAnimationSpeed = 1f;
-    public float runMaxAnimationSpeed = 3f;
-    public float jumpAnimationSpeed = 2f;
+    public float runMaxAnimationSpeed = 1.75f;
+    public float jumpAnimationSpeed = 1.15f;
     public float landAnimationSpeed = 1f;
-    public float walkSpeed = 4f;
+    public float walkSpeed = 2f;
     public float trotSpeed = 4f;
-    public float runSpeed = 6f;
+    public float runSpeed = 9f;
+    const float WalkSpeedUnity4 = 2f;
+    const float RunSpeedBase = 9f;
+    const float RunSpeedZapato = 12f;
+    const float RunAnimSpeed = 1.75f;
+    const float RunAnimSpeedZapato = 1.9f;
+    const float FadeAnimacion = 0.12f;
     public float inAirControlAcceleration = 3f;
     public float jumpHeight = 1.3f;
     public float gravity = 20f;
-    public float speedSmoothing = 1000f;
+    public float speedSmoothing = 10f;
     public float rotateSpeed = 500f;
     public float trotAfterSeconds = 100000f;
     public bool canJump = true;
@@ -57,6 +63,13 @@ public class ThirdPersonController : MonoBehaviour
     float lastGroundedTime;
     bool isControllable = true;
     bool _anuncioFinal;
+    string _clipActual;
+    Transform _huesoLocomocion;
+    Vector3 _huesoLocomocionBind;
+    float _huesoLocomocionYaw;
+    Vector3 _posTrasMover;
+    Quaternion _rotTrasMover;
+    bool _poseFijada;
 
     void Awake()
     {
@@ -65,6 +78,10 @@ public class ThirdPersonController : MonoBehaviour
         if (_animation == null)
             _animation = GetComponentInChildren<Animation>();
         AsignarClipsSiFaltan();
+        AnclarHuesoLocomocion();
+        walkSpeed = WalkSpeedUnity4;
+        runSpeed = RunSpeedBase;
+        runMaxAnimationSpeed = RunAnimSpeed;
     }
 
     public void RecargarClips()
@@ -78,10 +95,12 @@ public class ThirdPersonController : MonoBehaviour
         winAnimation = null;
         loseAnimation = null;
         AsignarClipsSiFaltan();
+        AnclarHuesoLocomocion();
     }
 
     void Start()
     {
+        AnclarHuesoLocomocion();
         var controller = GetComponent<CharacterController>();
         if (controller != null)
             collisionFlags = controller.Move(Vector3.down * 0.05f);
@@ -128,16 +147,23 @@ public class ThirdPersonController : MonoBehaviour
 
     void UpdateSmoothedMovementDirection()
     {
-        if (Camera.main == null)
-            return;
-
-        Transform cameraTransform = Camera.main.transform;
+        Transform cameraTransform = Camera.main != null ? Camera.main.transform : transform;
         bool grounded = IsGrounded();
 
-        Vector3 forward = cameraTransform.TransformDirection(Vector3.forward);
-        forward.y = 0;
-        forward = forward.normalized;
-        Vector3 right = new Vector3(forward.z, 0, -forward.x);
+        Vector3 forward = cameraTransform.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.0001f)
+            forward = Vector3.ProjectOnPlane(cameraTransform.up, Vector3.up);
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.0001f)
+            forward = Vector3.forward;
+        forward.Normalize();
+
+        Vector3 right = cameraTransform.right;
+        right.y = 0f;
+        if (right.sqrMagnitude < 0.0001f)
+            right = new Vector3(forward.z, 0f, -forward.x);
+        right.Normalize();
 
         float v = Input.GetAxisRaw("Vertical");
         float h = Input.GetAxisRaw("Horizontal");
@@ -145,6 +171,8 @@ public class ThirdPersonController : MonoBehaviour
         bool wasMoving = isMoving;
         isMoving = Mathf.Abs(h) > 0.1f || Mathf.Abs(v) > 0.1f;
         Vector3 targetDirection = h * right + v * forward;
+        if (targetDirection.sqrMagnitude > 1f)
+            targetDirection.Normalize();
 
         if (grounded)
         {
@@ -152,13 +180,21 @@ public class ThirdPersonController : MonoBehaviour
             if (isMoving != wasMoving)
                 lockCameraTimer = 0f;
 
-            if (targetDirection != Vector3.zero)
+            if (targetDirection.sqrMagnitude > 0.0001f)
             {
-                if (moveSpeed < walkSpeed * 0.9f && grounded)
-                    moveDirection = targetDirection.normalized;
+                Vector3 wish = targetDirection.normalized;
+                float angle = Vector3.Angle(moveDirection, wish);
+                // Snap only for modest turns from rest. A 180 from S or camera
+                // orbit must RotateTowards so the body does not flip every frame.
+                if (moveSpeed < walkSpeed * 0.9f && angle < 90f)
+                    moveDirection = wish;
                 else
                 {
-                    moveDirection = Vector3.RotateTowards(moveDirection, targetDirection, rotateSpeed * Mathf.Deg2Rad * Time.deltaTime, 1000);
+                    moveDirection = Vector3.RotateTowards(
+                        moveDirection,
+                        wish,
+                        rotateSpeed * Mathf.Deg2Rad * Time.deltaTime,
+                        1000f);
                     moveDirection = moveDirection.normalized;
                 }
             }
@@ -166,11 +202,13 @@ public class ThirdPersonController : MonoBehaviour
             float curSmooth = speedSmoothing * Time.deltaTime;
             float targetSpeed = Mathf.Min(targetDirection.magnitude, 1f);
             _characterState = CharacterState.Idle;
+            bool corriendo = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 
-            if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+            if (corriendo && isMoving)
             {
                 targetSpeed *= runSpeed;
                 _characterState = CharacterState.Running;
+                curSmooth = 1f;
             }
             else if (Time.time - trotAfterSeconds > walkTimeStart)
             {
@@ -245,8 +283,13 @@ public class ThirdPersonController : MonoBehaviour
 
         if (ObjetosPorJugador.TieneZapato)
         {
-            runSpeed = 10f;
-            runMaxAnimationSpeed = 6f;
+            runSpeed = RunSpeedZapato;
+            runMaxAnimationSpeed = RunAnimSpeedZapato;
+        }
+        else
+        {
+            runSpeed = RunSpeedBase;
+            runMaxAnimationSpeed = RunAnimSpeed;
         }
 
         if (!isControllable)
@@ -259,17 +302,35 @@ public class ThirdPersonController : MonoBehaviour
         ApplyGravity();
         ApplyJumping();
 
-        Vector3 movement = moveDirection * moveSpeed + new Vector3(0, verticalSpeed, 0) + inAirVelocity;
+        Vector3 planar = moveDirection.sqrMagnitude > 0.0001f
+            ? moveDirection.normalized * moveSpeed
+            : Vector3.zero;
+        Vector3 movement = planar + new Vector3(0, verticalSpeed, 0) + inAirVelocity;
         movement *= Time.deltaTime;
 
         var controller = GetComponent<CharacterController>();
         if (controller != null && !ObjetosPorJugador.JugadorHaGanado && !ObjetosPorJugador.JugadorHaPerdido)
             collisionFlags = controller.Move(movement);
 
+        if (transform.position.y < AmbienteTerreno.YCaida)
+        {
+            SpawnJugador.Recolocar(transform);
+            verticalSpeed = 0f;
+            inAirVelocity = Vector3.zero;
+            jumping = false;
+            jumpingReachedApex = false;
+            if (controller != null)
+                collisionFlags = controller.Move(Vector3.down * 0.05f);
+        }
+
         Animar(controller);
 
+        // Face the travel direction only. Mouse orbit never copies onto transform.forward.
         if (IsGrounded())
-            transform.rotation = Quaternion.LookRotation(moveDirection);
+        {
+            if (isMoving && moveDirection.sqrMagnitude > 0.0001f)
+                transform.rotation = Quaternion.LookRotation(moveDirection);
+        }
         else
         {
             Vector3 xzMove = movement;
@@ -288,6 +349,29 @@ public class ThirdPersonController : MonoBehaviour
                 SendMessage("DidLand", SendMessageOptions.DontRequireReceiver);
             }
         }
+
+        _posTrasMover = transform.position;
+        _rotTrasMover = transform.rotation;
+        _poseFijada = true;
+    }
+
+    void LateUpdate()
+    {
+        if (_poseFijada)
+        {
+            transform.SetPositionAndRotation(_posTrasMover, _rotTrasMover);
+            _poseFijada = false;
+        }
+
+        if (_huesoLocomocion == null)
+            return;
+        var pos = _huesoLocomocion.localPosition;
+        pos.x = _huesoLocomocionBind.x;
+        pos.z = _huesoLocomocionBind.z;
+        _huesoLocomocion.localPosition = pos;
+        var euler = _huesoLocomocion.localEulerAngles;
+        euler.y = _huesoLocomocionYaw;
+        _huesoLocomocion.localEulerAngles = euler;
     }
 
     void Animar(CharacterController controller)
@@ -298,13 +382,12 @@ public class ThirdPersonController : MonoBehaviour
         if (ObjetosPorJugador.JugadorHaGanado)
         {
             if (winAnimation != null)
-                _animation.CrossFade(Estado(winAnimation, "Gana"));
+                Reproducir(Estado(winAnimation, "Gana"), 1f, WrapMode.Once);
             if (!_anuncioFinal)
             {
                 _anuncioFinal = true;
-                var manager = GameObject.FindGameObjectWithTag("GameManager");
-                if (manager != null)
-                    manager.GetComponent<GestionaMultiJugador>().TerminarJuego();
+                if (GestionaMultiJugador.Instancia != null)
+                    GestionaMultiJugador.Instancia.TerminarJuego();
             }
             return;
         }
@@ -312,42 +395,73 @@ public class ThirdPersonController : MonoBehaviour
         if (ObjetosPorJugador.JugadorHaPerdido)
         {
             if (loseAnimation != null)
-                _animation.CrossFade(Estado(loseAnimation, "Pierde"));
+                Reproducir(Estado(loseAnimation, "Pierde"), 1f, WrapMode.Once);
             return;
         }
 
         if (_characterState == CharacterState.Jumping && jumpPoseAnimation != null)
         {
             var salta = Estado(jumpPoseAnimation, "Salta");
-            _animation[salta].speed = jumpingReachedApex ? -landAnimationSpeed : jumpAnimationSpeed;
-            _animation[salta].wrapMode = WrapMode.ClampForever;
-            _animation.CrossFade(salta);
+            float velSalta = jumpingReachedApex ? -landAnimationSpeed : jumpAnimationSpeed;
+            Reproducir(salta, velSalta, WrapMode.ClampForever);
             return;
         }
 
-        bool caminando = _characterState == CharacterState.Walking
-            || _characterState == CharacterState.Trotting
-            || isMoving;
         float vel = controller != null ? controller.velocity.magnitude : moveSpeed;
+        bool enMarcha = vel > 0.12f || isMoving;
 
-        if (_characterState == CharacterState.Running && runAnimation != null)
+        if (_characterState == CharacterState.Running && runAnimation != null && enMarcha)
         {
-            var corre = Estado(runAnimation, "Corre");
-            _animation[corre].speed = Mathf.Clamp(vel, 0.8f, runMaxAnimationSpeed);
-            _animation.CrossFade(corre);
+            Reproducir(Estado(runAnimation, "Corre"), runMaxAnimationSpeed, WrapMode.Loop);
             return;
         }
 
-        if (caminando && walkAnimation != null)
+        if (enMarcha && walkAnimation != null)
         {
-            var camina = Estado(walkAnimation, "Camina");
-            _animation[camina].speed = Mathf.Clamp(Mathf.Max(vel * 0.35f, 0.75f), 0.75f, walkMaxAnimationSpeed);
-            _animation.CrossFade(camina);
+            float rel = walkSpeed > 0.05f ? vel / walkSpeed : 1f;
+            float speed = Mathf.Clamp(rel, 0.9f, walkMaxAnimationSpeed);
+            Reproducir(Estado(walkAnimation, "Camina"), speed, WrapMode.Loop);
             return;
         }
 
         if (idleAnimation != null)
-            _animation.CrossFade(Estado(idleAnimation, "Espera"));
+            Reproducir(Estado(idleAnimation, "Espera"), 1f, WrapMode.Loop);
+    }
+
+    void Reproducir(string clip, float speed, WrapMode wrap)
+    {
+        if (string.IsNullOrEmpty(clip) || _animation[clip] == null)
+            return;
+        _animation[clip].speed = speed;
+        _animation[clip].wrapMode = wrap;
+        if (_clipActual == clip && _animation.IsPlaying(clip))
+            return;
+        _animation.CrossFade(clip, FadeAnimacion);
+        _clipActual = clip;
+    }
+
+    void AnclarHuesoLocomocion()
+    {
+        _huesoLocomocion = BuscarHijo(transform, "Bip003")
+            ?? BuscarHijo(transform, "Bip002")
+            ?? BuscarHijo(transform, "Bip001");
+        if (_huesoLocomocion == null)
+            return;
+        _huesoLocomocionBind = _huesoLocomocion.localPosition;
+        _huesoLocomocionYaw = _huesoLocomocion.localEulerAngles.y;
+    }
+
+    static Transform BuscarHijo(Transform root, string name)
+    {
+        if (root.name == name)
+            return root;
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var found = BuscarHijo(root.GetChild(i), name);
+            if (found != null)
+                return found;
+        }
+        return null;
     }
 
     string Estado(AnimationClip clip, string alias)
