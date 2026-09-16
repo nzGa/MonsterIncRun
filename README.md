@@ -1,13 +1,9 @@
 # Run Mike Run
 
-Juego 3D multijugador basado en *Monsters, Inc.*
+Juego 3D basado en *Monsters, Inc.* Desarrollado desde cero con fines educativos, sin experiencia previa en las herramientas utilizadas:
 
-Desarrollado desde cero con fines educativos, sin experiencia previa en las herramientas utilizadas.
-
-Hecho con:
-
-- **Unity 4.6** (2014): terreno, lógica de red y el juego original.
-- **3ds Max 2014**: modelos 3D y animaciones (Mike, fábrica, objetos).
+- **Unity 4.6** (2014): terreno, lógica de red y juego multijugador original.
+- **3ds Max 2014**: modelos 3D y animaciones.
 - **Unity 6** (Built-in Render Pipeline): migración. El Terrain de Unity 4 no carga en Unity 6; el paisaje se reconstruye con el heightmap y las posiciones de árboles/rocas. El multijugador todavía no está (un jugador). Menús y HUD pasaron de OnGUI a Canvas.
 
 ## Cómo abrirlo en Unity 6
@@ -64,11 +60,11 @@ Aparecen al azar cuando arranca el servidor.
 | **Ducha**                     | Te descontamina.                                                                                                  |
 
 
-## Créditos de modelos
+## Créditos
 
-Algunos modelos 3D los hice yo (como **Mike**). Otros están tomados de bibliotecas y modificados.
+El proyecto es educativo/fan. No está afiliado a Disney ni Pixar.
 
-La malla de Mike viene con la boca abierta: el FBX no tiene blendshapes, morpher ni hueso de mandíbula. Una sonrisa cerrada hay que modelarla en 3ds Max (u otra malla / morph); no se puede improvisar moviendo vértices.
+Algunos modelos 3D fueron hechos a mano yotros están tomados de bibliotecas y modificados:
 
 
 | Modelo        | Fuente                                        |
@@ -79,7 +75,7 @@ La malla de Mike viene con la boca abierta: el FBX no tiene blendshapes, morpher
 | Caja sorpresa | [TurboSquid](https://www.turbosquid.com)      |
 
 
-Proyecto educativo / fan. No está afiliado a Disney ni Pixar.
+
 
 ## Estructura
 
@@ -102,6 +98,8 @@ MonsterIncRun/
     unity4-scripts/            UnityScript (.js) y APIs que ya no compilan
 ```
 
+
+
 Unity solo mira `Assets/`. Por eso el Terrain, los prefabs de Unity 4 y los `.js` están en `legacy/`: el editor arranca más limpio y no intenta compilar código muerto.
 
 
@@ -116,12 +114,9 @@ Unity solo mira `Assets/`. Por eso el Terrain, los prefabs de Unity 4 y los `.js
 | `ThirdPersonController` | Player  | Movimiento y animaciones     |
 
 
-
 ## Qué falta
 
 - [ ] Terrain original de Unity 4 (colinas/césped como Terrain): no es portable; por ahora planos texturizados
-- [ ] Warnings de import de FBX que quedan (`MaterialLocation.External` en algunos props, split de mesh 65k) — polish
-- [ ] Ajuste fino de colores de fábrica/Mike si todavía no coinciden con el original
+- [ ] Ajuste fino de texturas
 - [ ] Multijugador (Netcode o Mirror)
 - [ ] Build de player macOS/Windows desde **File → Build Profiles**
-- [ ] Cambios locales de bootstrap/arte aún no pusheados
