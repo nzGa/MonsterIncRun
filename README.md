@@ -1,12 +1,16 @@
 # Run Mike Run
 
-Juego 3D basado en *Monsters, Inc.* Desarrollado desde cero con fines educativos, sin experiencia previa en las herramientas utilizadas:
+Juego 3D basado en *Monsters, Inc.* Proyecto educativo (fan), sin afiliación con Disney ni Pixar.
 
-- **Unity 4.6** (2014): terreno, lógica de red y juego multijugador original.
-- **3ds Max 2014**: modelos 3D y animaciones.
-- **Unity 6** (Built-in Render Pipeline): migración. El Terrain de Unity 4 no carga en Unity 6; el paisaje se reconstruye con el heightmap y las posiciones de árboles/rocas. El multijugador todavía no está (un jugador). Menús y HUD pasaron de OnGUI a Canvas.
+Empezó en **Unity 4.6** (2014) con terreno, red y multijugador. Los modelos y animaciones salieron de **3ds Max 2014**. Hoy corre en **Unity 6** (Built-in Render Pipeline), en modo un jugador: el Terrain de Unity 4 no carga, así que el paisaje se reconstruye con heightmap y posiciones de árboles/rocas; menús y HUD pasaron de OnGUI a Canvas. El multijugador todavía no está.
 
-## Cómo abrirlo en Unity 6
+---
+
+## Para jugadores
+
+Cómo instalar Unity, abrir el proyecto y jugar.
+
+### Instalar Unity 6
 
 1. Instalá [Unity Hub](https://unity.com/download) o, en Mac, `brew install --cask unity-hub`.
 2. Instalá un editor **Unity 6**. Este proyecto se abrió bien con **Unity 6.6 (6000.6.0f1)** Apple Silicon. Unity 6.3 LTS (6000.3.24f1) también sirve si Hub la lista.
@@ -15,15 +19,18 @@ Juego 3D basado en *Monsters, Inc.* Desarrollado desde cero con fines educativos
 5. Si macOS pide la Keychain de `github.com`, es la contraseña de login de la Mac, no la de GitHub. *Permitir* / *Permitir siempre*.
 6. Si Hub se cuelga instalando un editor: volvé a abrirlo, elegí un Unity 6 que ya esté instalado (por ejemplo 6000.6.0f1) y no arranques otra instalación.
 7. La primera apertura tarda: esperá a que compile shaders e importe assets.
-8. No le des Play a la escena Untitled por defecto. Abrí `Assets/Scenes/MainMenu` y ahí dale Play.
-9. Lista de build: **File → Build Profiles** (o Build Settings). Agregá `MainMenu` (índice 0) y `Mike_Juego` (índice 1). Si no, **Iniciar** falla porque la escena no está en el build profile.
-10. Después de **Iniciar**: `WASD` caminar, `Shift` correr, `Espacio` saltar, mouse cámara, `Esc` menú.
+
+### Abrir y darle Play
+
+1. No le des Play a la escena Untitled por defecto. Abrí `Assets/Scenes/MainMenu` y ahí dale Play.
+2. Lista de build: **File → Build Profiles** (o Build Settings). Agregá `MainMenu` (índice 0) y `Mike_Juego` (índice 1). Si no, **Iniciar** falla porque la escena no está en el build profile.
+3. Después de **Iniciar**: `WASD` caminar, `Shift` correr, `Espacio` saltar, mouse cámara, `Esc` menú.
 
 Si un FBX no escala bien, el juego usa una cápsula o primitivas para no bloquear el Play.
 
-## Cómo se juega
+### Cómo se juega
 
-Hasta **5 jugadores**. Las reglas son simples:
+Hasta **5 jugadores** en el diseño original. Las reglas son simples:
 
 - Gana el **primero** que obtiene un tubo de gritos y llega a la **puerta**.
 - La puerta aparece en una **posición aleatoria**.
@@ -33,7 +40,7 @@ Para cruzar la puerta hay que tener el tubo y **no estar contaminado**.
 
 En esta versión hay **modo un jugador**: Mike spawnea local, los ítems y la puerta aparecen al azar, y las medias te contaminan a vos (en el original contaminaban a los oponentes). El multiplayer se puede volver a agregar después.
 
-### Controles (cliente)
+### Controles
 
 
 | Tecla           | Acción                     |
@@ -47,7 +54,7 @@ En esta versión hay **modo un jugador**: Mike spawnea local, los ítems y la pu
 
 ### Objetos en el mapa
 
-Aparecen al azar cuando arranca el servidor.
+Aparecen al azar cuando arranca la partida.
 
 
 | Objeto                        | Qué hace                                                                                                          |
@@ -60,11 +67,9 @@ Aparecen al azar cuando arranca el servidor.
 | **Ducha**                     | Te descontamina.                                                                                                  |
 
 
-## Créditos
+### Créditos de modelos
 
-El proyecto es educativo/fan. No está afiliado a Disney ni Pixar.
-
-Algunos modelos 3D fueron hechos a mano yotros están tomados de bibliotecas y modificados:
+Algunos modelos 3D fueron hechos a mano y otros están tomados de bibliotecas y modificados:
 
 
 | Modelo        | Fuente                                        |
@@ -74,10 +79,13 @@ Algunos modelos 3D fueron hechos a mano yotros están tomados de bibliotecas y m
 | Puerta        | [crazy3dfree.com](http://www.crazy3dfree.com) |
 | Caja sorpresa | [TurboSquid](https://www.turbosquid.com)      |
 
+---
 
+## Para desarrolladores / modificar el proyecto
 
+Estructura, menús de bake, scripts y dónde quedó el respaldo de Unity 4.
 
-## Estructura
+### Estructura
 
 ```
 MonsterIncRun/
@@ -86,21 +94,23 @@ MonsterIncRun/
     Scripts/
       UI/                      Canvas (menú, HUD, timer)
       Player/                  movimiento, cámara, ítems
-      World/                   spawn, sesión, modelos
+      World/                   spawn, sesión, modelos, terreno
     Resources/
       UI/                      texturas del menú y HUD
       Models/                  FBX (fábrica, tubo, puerta, caja, ducha, Mike)
-    Editor/                    import de animaciones legacy de Mike
+      Environment/             árboles, palmeras, rocas
+      Terrain/                 heightmap y datos de árboles
+      Textures/                texturas de piso, césped, etc.
+      Skyboxes/
+    Art/                       texturas / sky de respaldo (el editor y algunos scripts las usan)
+    Editor/                    bootstrap, bake de terreno/árboles, import de Mike
   Packages/                    Unity 6
   ProjectSettings/
-  legacy/                      No se importa (fuera de Assets/)
-    unity4-assets/             Standard Assets, Terrain, prefabs binarios, materiales viejos
-    unity4-scripts/            UnityScript (.js) y APIs que ya no compilan
 ```
 
+Unity solo mira `Assets/`. No hay carpeta `legacy/` en el árbol activo: el juego Unity 6 no la carga.
 
-
-Unity solo mira `Assets/`. Por eso el Terrain, los prefabs de Unity 4 y los `.js` están en `legacy/`: el editor arranca más limpio y no intenta compilar código muerto.
+### Scripts principales
 
 
 | Script                  | Carpeta | Rol                          |
@@ -112,11 +122,40 @@ Unity solo mira `Assets/`. Por eso el Terrain, los prefabs de Unity 4 y los `.js
 | `SpawnObjetos`          | World   | Puerta, ducha, tubos y cajas |
 | `ObtieneObjeto`         | Player  | Ítems y victoria             |
 | `ThirdPersonController` | Player  | Movimiento y animaciones     |
+| `AmbienteTerreno`       | World   | Terrain, árboles y rocas     |
 
 
-## Qué falta
+### Bake de terreno y árboles
 
-- [ ] Terrain original de Unity 4 (colinas/césped como Terrain): no es portable; por ahora planos texturizados
+Con la escena de juego lista (o desde el menú, aunque no esté abierta):
+
+1. **Monster Inc Run → Bake Terrain Into Scene** — deja el Terrain visible en el Editor (datos en `Assets/Resources/Terrain`).
+2. **Monster Inc Run → Bake Trees And Rocks Into Scene** — instancia árboles y rocas en `Mike_Juego` para poder moverlos y guardarlos.
+
+Guardá la escena después. No hace falta tener Play activo.
+
+También existe **Monster Inc Run → Bootstrap Project** (escenas de build, materiales, reimport de Mike Legacy).
+
+### Respaldo Unity 4 (historial de git)
+
+La carpeta `legacy/` (Standard Assets, Terrain binario, prefabs y scripts `.js` de Unity 4) **no se importaba** (estaba fuera de `Assets/`) y se sacó del árbol activo para aligerar el repo.
+
+Sigue en el historial de git, por ejemplo en `origin/master` antes de este cambio:
+
+```bash
+git show origin/master:legacy/
+# o recuperar un archivo puntual:
+git checkout <commit-que-tenia-legacy> -- legacy/
+```
+
+No borra el historial: `git log -- legacy/` sigue mostrando esos commits.
+
+### Build
+
+**File → Build Profiles**: `MainMenu` (0) y `Mike_Juego` (1), después Build.
+
+### Qué falta
+
 - [ ] Ajuste fino de texturas
 - [ ] Multijugador (Netcode o Mirror)
 - [ ] Build de player macOS/Windows desde **File → Build Profiles**
