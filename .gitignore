@@ -41,6 +41,5 @@ crashlytics-buildid.txt
 ExportedObj/
 .consulo/
 
-# Build Windows 2014 (binario, no fuente)
+# Build binario (no fuente)
 /Built/
-/legacy/windows-build/
