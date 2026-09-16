@@ -192,6 +192,7 @@ public class SpawnObjetos : MonoBehaviour
         var go = Instanciar("Ducha", "Ducha", ducha, "Models/ducha", "Assets/Resources/Models/ducha.FBX",
             pos, PrimitiveType.Cylinder, new Color(0.45f, 0.78f, 0.95f), 3.3f, true);
         AgregarLluvia(go);
+        AsegurarTriggerDucha(go);
     }
 
     void SpawnPuerta()
@@ -331,20 +332,22 @@ public class SpawnObjetos : MonoBehaviour
         ColocarSobreSuelo(go, position);
         if (tag == "Ducha")
             go = EnvolverSinRotacion(go);
-        AsegurarTrigger(go);
+        if (tag != "Ducha")
+            AsegurarTrigger(go);
         return go;
     }
 
     static GameObject EnvolverSinRotacion(GameObject modelo)
     {
         var wrap = new GameObject(modelo.name);
-        wrap.tag = modelo.tag;
-        wrap.layer = modelo.layer;
+        wrap.tag = "Ducha";
+        wrap.layer = 0;
         wrap.transform.position = modelo.transform.position;
         wrap.transform.rotation = Quaternion.identity;
         wrap.transform.localScale = Vector3.one;
         modelo.transform.SetParent(wrap.transform, true);
         modelo.name = "Modelo";
+        modelo.tag = "Ducha";
         return wrap;
     }
 
@@ -555,40 +558,26 @@ public class SpawnObjetos : MonoBehaviour
     static void AsegurarTrigger(GameObject go)
     {
         bool puerta = go.CompareTag("Puerta");
-        bool ducha = go.CompareTag("Ducha");
         QuitarColliders(go);
         if (puerta)
             AsegurarColliderSolidoPuerta(go);
 
         var b = BoundsDe(go);
-        float padXz = (puerta || ducha) ? 0.8f : 0.5f;
-        float minXz = puerta ? 2.4f : (ducha ? 2.2f : 0.85f);
-        float minY = puerta ? 3.2f : (ducha ? 2.8f : 0.7f);
+        float padXz = puerta ? 0.8f : 0.5f;
+        float minXz = puerta ? 2.4f : 0.85f;
+        float minY = puerta ? 3.2f : 0.7f;
         float sx = Mathf.Max(b.size.x + padXz * 2f, minXz);
         float sy = Mathf.Max(b.size.y + 0.5f, minY);
         float sz = Mathf.Max(b.size.z + padXz * 2f, minXz);
-        if (puerta || ducha)
+        if (puerta)
         {
-            // Keep a thick catch volume around the FBX slab so the
-            // CharacterController can win without tunneling through a
-            // paper-thin wall (door) or stall backboard (shower).
+            // Keep a thick catch volume in front/around the slab so the
+            // CharacterController can win without clipping through wood.
             const float profundidad = 2.4f;
             if (b.size.x <= b.size.z)
-                sx = Mathf.Max(b.size.x + profundidad, minXz);
+                sx = Mathf.Max(b.size.x + profundidad, 2.4f);
             else
-                sz = Mathf.Max(b.size.z + profundidad, minXz);
-        }
-
-        var centro = new Vector3(b.center.x, b.min.y + sy * 0.5f, b.center.z);
-        if (ducha)
-        {
-            var cabeza = BuscarHijo(go.transform, "Cylinder001");
-            if (cabeza != null)
-            {
-                var rb = cabeza.GetComponent<Renderer>();
-                var c = rb != null ? rb.bounds.center : cabeza.position;
-                centro = new Vector3(c.x, b.min.y + sy * 0.5f, c.z);
-            }
+                sz = Mathf.Max(b.size.z + profundidad, 2.4f);
         }
 
         var t = go.transform.Find("Trigger");
@@ -608,7 +597,7 @@ public class SpawnObjetos : MonoBehaviour
         // sized from world AABB / lossyScale on the root is paper-thin and
         // CharacterController never fires OnTriggerEnter.
         t.SetParent(null);
-        t.position = centro;
+        t.position = new Vector3(b.center.x, b.min.y + sy * 0.5f, b.center.z);
         t.rotation = Quaternion.identity;
         t.localScale = Vector3.one;
         t.SetParent(go.transform, true);
@@ -623,6 +612,65 @@ public class SpawnObjetos : MonoBehaviour
             sy / Mathf.Max(Mathf.Abs(ls.y), 1e-4f),
             sz / Mathf.Max(Mathf.Abs(ls.z), 1e-4f));
         box.isTrigger = true;
+    }
+
+    static void AsegurarTriggerDucha(GameObject wrap)
+    {
+        if (wrap == null)
+            return;
+
+        QuitarColliders(wrap);
+
+        var lluvia = BuscarHijo(wrap.transform, "Lluvia");
+        var cabeza = BuscarHijo(wrap.transform, "Cylinder001");
+        Vector3 xz;
+        if (lluvia != null)
+            xz = lluvia.position;
+        else if (cabeza != null)
+        {
+            var rend = cabeza.GetComponent<Renderer>();
+            xz = rend != null ? rend.bounds.center : cabeza.position;
+        }
+        else
+            xz = BoundsDe(wrap).center;
+
+        const float alto = 2.9f;
+        const float ancho = 2.4f;
+        float suelo = AmbienteTerreno.AlturaEn(xz);
+        var centro = new Vector3(xz.x, suelo + alto * 0.5f, xz.z);
+
+        var viejo = wrap.transform.Find("Ducha Trigger");
+        if (viejo != null)
+            UnityEngine.Object.DestroyImmediate(viejo.gameObject);
+
+        var host = new GameObject("Ducha Trigger");
+        host.tag = "Ducha";
+        host.layer = 0;
+
+        // Identity wrap, never parented under the -90° FBX model.
+        var t = host.transform;
+        t.SetParent(null);
+        t.position = centro;
+        t.rotation = Quaternion.identity;
+        t.localScale = Vector3.one;
+        t.SetParent(wrap.transform, true);
+
+        var box = host.AddComponent<BoxCollider>();
+        var ls = t.lossyScale;
+        box.center = Vector3.zero;
+        box.size = new Vector3(
+            ancho / Mathf.Max(Mathf.Abs(ls.x), 1e-4f),
+            alto / Mathf.Max(Mathf.Abs(ls.y), 1e-4f),
+            ancho / Mathf.Max(Mathf.Abs(ls.z), 1e-4f));
+        box.isTrigger = true;
+
+        var rb = host.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity = false;
+        rb.interpolation = RigidbodyInterpolation.None;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+
+        host.AddComponent<DuchaTrigger>();
     }
 
     static void AsegurarColliderSolidoPuerta(GameObject go)

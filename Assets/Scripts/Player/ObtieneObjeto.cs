@@ -33,6 +33,12 @@ public class ObtieneObjeto : MonoBehaviour
             return;
         }
 
+        if (pickup.CompareTag("Ducha"))
+        {
+            DescontaminarEnDucha();
+            return;
+        }
+
         if (!entrar)
             return;
 
@@ -88,15 +94,16 @@ public class ObtieneObjeto : MonoBehaviour
                     Destroy(pickup.gameObject);
                     break;
             }
-            return;
         }
+    }
 
-        if (pickup.CompareTag("Ducha"))
-        {
-            if (ObjetosPorJugador.TieneZoquete)
-                GameGUI.MjeDescontaminado = true;
-            ObjetosPorJugador.TieneZoquete = false;
-        }
+    public void DescontaminarEnDucha()
+    {
+        if (!ObjetosPorJugador.TieneZoquete)
+            return;
+
+        ObjetosPorJugador.TieneZoquete = false;
+        GameGUI.MjeDescontaminado = true;
     }
 
     static void IntentarPuerta()
@@ -145,5 +152,29 @@ public class ObtieneObjeto : MonoBehaviour
             || t.CompareTag("Caja")
             || t.CompareTag("Puerta")
             || t.CompareTag("Ducha");
+    }
+}
+
+public class DuchaTrigger : MonoBehaviour
+{
+    void OnTriggerEnter(Collider other)
+    {
+        Avisar(other);
+    }
+
+    void OnTriggerStay(Collider other)
+    {
+        Avisar(other);
+    }
+
+    static void Avisar(Collider other)
+    {
+        if (other == null)
+            return;
+
+        var obtiene = other.GetComponent<ObtieneObjeto>()
+            ?? other.GetComponentInParent<ObtieneObjeto>();
+        if (obtiene != null)
+            obtiene.DescontaminarEnDucha();
     }
 }
