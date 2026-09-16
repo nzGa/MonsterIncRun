@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public static class AmbienteTerreno
@@ -7,6 +8,8 @@ public static class AmbienteTerreno
     const float AltoOriginal = 50f;
     const float Largo = 200f;
     const float RadioFabricaLibre = 22f;
+    const float TerrenoY = -0.02f;
+    public const float YCaida = -5f;
 
     static Material _tronco;
     static Material _hojas;
@@ -20,42 +23,119 @@ public static class AmbienteTerreno
         if (viejoCesped != null)
             Object.Destroy(viejoCesped);
 
-        if (Terrain.activeTerrain != null)
-            return;
-
-        var data = new TerrainData
+        if (Terrain.activeTerrain == null)
         {
-            heightmapResolution = Resolucion,
-            size = new Vector3(Ancho, AltoOriginal, Largo),
-            alphamapResolution = 256,
-            baseMapResolution = 256
-        };
+            var data = new TerrainData
+            {
+                heightmapResolution = Resolucion,
+                size = new Vector3(Ancho, AltoOriginal, Largo),
+                alphamapResolution = 256,
+                baseMapResolution = 256
+            };
 
-        if (!AplicarHeightmapOriginal(data))
-            GenerarColinasAlrededor(data);
+            if (!AplicarHeightmapOriginal(data))
+                GenerarColinasAlrededor(data);
 
-        AplicarCapas(data);
-        PintarLaderas(data);
+            AplicarCapas(data);
+            PintarLaderas(data);
 
-        var go = Terrain.CreateTerrainGameObject(data);
-        go.name = "Terreno";
-        go.transform.position = new Vector3(-Ancho * 0.5f, -0.02f, -Largo * 0.5f);
+            var go = Terrain.CreateTerrainGameObject(data);
+            go.name = "Terreno";
+            go.transform.position = OrigenTerreno();
 
-        var terrain = go.GetComponent<Terrain>();
-        terrain.heightmapPixelError = 8f;
-        terrain.basemapDistance = 180f;
-        terrain.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
-        terrain.drawInstanced = true;
-        terrain.Flush();
+            var terrain = go.GetComponent<Terrain>();
+            terrain.heightmapPixelError = 8f;
+            terrain.basemapDistance = 180f;
+            terrain.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            terrain.drawInstanced = true;
+            terrain.Flush();
 
-        try
-        {
-            ColocarVegetacion(terrain);
+            try
+            {
+                ColocarVegetacion(terrain);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("AmbienteTerreno vegetacion: " + e.Message);
+            }
         }
-        catch (System.Exception e)
+
+        CrearLimites();
+    }
+
+    static Vector3 OrigenTerreno()
+    {
+        return new Vector3(-Ancho * 0.5f, TerrenoY, -Largo * 0.5f);
+    }
+
+    static Vector3 TamanoTerreno()
+    {
+        return new Vector3(Ancho, AltoOriginal, Largo);
+    }
+
+    public static Bounds BoundsJugables()
+    {
+        var terrain = Terrain.activeTerrain;
+        if (terrain != null && terrain.terrainData != null)
         {
-            Debug.LogWarning("AmbienteTerreno vegetacion: " + e.Message);
+            var pos = terrain.transform.position;
+            var size = terrain.terrainData.size;
+            return new Bounds(pos + size * 0.5f, size);
         }
+
+        var origen = OrigenTerreno();
+        var tam = TamanoTerreno();
+        return new Bounds(origen + tam * 0.5f, tam);
+    }
+
+    static void CrearLimites()
+    {
+        var viejo = GameObject.Find("LimitesMapa");
+        if (viejo != null)
+            Object.DestroyImmediate(viejo);
+
+        var b = BoundsJugables();
+        const float grosor = 4f;
+        const float extraAlto = 30f;
+        const float margenPiso = 8f;
+        float yMin = Mathf.Min(b.min.y, YCaida) - 4f;
+        float yMax = b.max.y + extraAlto;
+        float alto = yMax - yMin;
+        float yCentro = (yMin + yMax) * 0.5f;
+        float zMuro = b.size.z + grosor * 2f;
+
+        var padre = new GameObject("LimitesMapa");
+
+        CrearCajaInvisible(padre.transform, "Muro+X",
+            new Vector3(b.max.x + grosor * 0.5f, yCentro, b.center.z),
+            new Vector3(grosor, alto, zMuro));
+        CrearCajaInvisible(padre.transform, "Muro-X",
+            new Vector3(b.min.x - grosor * 0.5f, yCentro, b.center.z),
+            new Vector3(grosor, alto, zMuro));
+        CrearCajaInvisible(padre.transform, "Muro+Z",
+            new Vector3(b.center.x, yCentro, b.max.z + grosor * 0.5f),
+            new Vector3(b.size.x, alto, grosor));
+        CrearCajaInvisible(padre.transform, "Muro-Z",
+            new Vector3(b.center.x, yCentro, b.min.z - grosor * 0.5f),
+            new Vector3(b.size.x, alto, grosor));
+
+        const float pisoGrosor = 2f;
+        float pisoTop = YCaida - 1f;
+        CrearCajaInvisible(padre.transform, "PisoCatch",
+            new Vector3(b.center.x, pisoTop - pisoGrosor * 0.5f, b.center.z),
+            new Vector3(b.size.x + margenPiso * 2f, pisoGrosor, b.size.z + margenPiso * 2f));
+    }
+
+    static void CrearCajaInvisible(Transform padre, string nombre, Vector3 centro, Vector3 tamano)
+    {
+        var go = new GameObject(nombre);
+        go.transform.SetParent(padre, false);
+        go.transform.position = centro;
+        go.transform.rotation = Quaternion.identity;
+        var box = go.AddComponent<BoxCollider>();
+        box.center = Vector3.zero;
+        box.size = tamano;
+        box.isTrigger = false;
     }
 
     public static float AlturaEn(Vector3 mundo)
@@ -129,14 +209,18 @@ public static class AmbienteTerreno
             diffuseTexture = cesped,
             tileSize = new Vector2(12f, 12f),
             metallic = 0f,
-            smoothness = 0.05f
+            smoothness = 0f,
+            specular = Color.black,
+            diffuseRemapMin = new Vector4(0.06f, 0.08f, 0.04f, 0f),
+            diffuseRemapMax = new Vector4(0.86f, 0.90f, 0.72f, 1f)
         };
         var cliff = new TerrainLayer
         {
             diffuseTexture = acantilado,
             tileSize = new Vector2(18f, 18f),
             metallic = 0f,
-            smoothness = 0.08f
+            smoothness = 0.04f,
+            specular = new Color(0.08f, 0.08f, 0.08f, 1f)
         };
         data.terrainLayers = new[] { grass, cliff };
     }
@@ -211,9 +295,7 @@ public static class AmbienteTerreno
                     go = CrearArbolGrande(arbol);
 
                 go.name = proto == 2 ? "Roca" : proto == 1 ? "Palmera" : "Arbol";
-                go.transform.SetParent(padre, true);
                 float yaw = (nx * 360f + nz * 140f + proto * 37f) % 360f;
-                go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
                 float n = Mathf.PerlinNoise(nx * 23.1f, nz * 17.7f);
                 float n2 = Mathf.PerlinNoise(nx * 9.4f + 4f, nz * 14.2f);
                 float sx = Mathf.Clamp(ancho, 0.8f, 1.3f);
@@ -223,8 +305,7 @@ public static class AmbienteTerreno
                     sx *= 0.72f + n * 0.7f;
                     sy *= 0.78f + n2 * 0.7f;
                 }
-                go.transform.localScale = Vector3.Scale(go.transform.localScale, new Vector3(sx, sy, sx));
-                SentarEnSuelo(go, pos);
+                ColocarEnTerreno(go, padre, pos, yaw, new Vector3(sx, sy, sx), proto == 2);
                 ok++;
             }
             catch (System.Exception e)
@@ -249,12 +330,10 @@ public static class AmbienteTerreno
             pos.y = AlturaEn(pos);
             try
             {
-                var go = (i % 7 == 0) ? CrearRoca(null) : (i % 5 == 0) ? CrearPalmera(null) : CrearArbolGrande(null);
-                go.transform.SetParent(padre, true);
-                go.transform.rotation = Quaternion.Euler(0f, rng.Next(0, 360), 0f);
+                bool roca = i % 7 == 0;
+                var go = roca ? CrearRoca(null) : (i % 5 == 0) ? CrearPalmera(null) : CrearArbolGrande(null);
                 float s = 0.75f + (float)rng.NextDouble() * 0.7f;
-                go.transform.localScale *= s;
-                SentarEnSuelo(go, pos);
+                ColocarEnTerreno(go, padre, pos, rng.Next(0, 360), Vector3.one * s, roca);
             }
             catch (System.Exception e)
             {
@@ -484,6 +563,31 @@ public static class AmbienteTerreno
         return go;
     }
 
+    static void ColocarEnTerreno(GameObject go, Transform padre, Vector3 pos, float yaw, Vector3 escala, bool roca)
+    {
+        var importRot = go.transform.localRotation;
+        var importScale = go.transform.localScale;
+
+        // Yaw-only wrapper so the capsule stays world-up. FBX -90° stays on the visual
+        // child; scaling the wrapper (not the FBX) keeps height on world Y.
+        var wrapper = new GameObject(go.name);
+        wrapper.transform.SetParent(padre, false);
+        wrapper.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+        wrapper.transform.localScale = escala;
+
+        go.name = "Modelo";
+        go.transform.SetParent(wrapper.transform, false);
+        go.transform.localPosition = Vector3.zero;
+        go.transform.localRotation = importRot;
+        go.transform.localScale = importScale;
+
+        SentarEnSuelo(wrapper, pos);
+        if (roca)
+            AsegurarColliderRoca(go);
+        else
+            AsegurarColliderTronco(wrapper);
+    }
+
     static void SentarEnSuelo(GameObject go, Vector3 destino)
     {
         go.transform.position = destino;
@@ -519,8 +623,7 @@ public static class AmbienteTerreno
 
     static void AplicarMat(GameObject go, Material mat)
     {
-        var r = go.GetComponent<Renderer>();
-        if (r != null && mat != null)
+        if (mat != null && go.TryGetComponent(out Renderer r))
             r.sharedMaterial = mat;
     }
 
@@ -570,8 +673,7 @@ public static class AmbienteTerreno
         {
             if (filter.sharedMesh == null)
                 continue;
-            var col = filter.gameObject.GetComponent<MeshCollider>();
-            if (col == null)
+            if (!filter.gameObject.TryGetComponent(out MeshCollider col))
                 col = filter.gameObject.AddComponent<MeshCollider>();
             col.sharedMesh = filter.sharedMesh;
             col.convex = filter.sharedMesh.vertexCount <= 255;
@@ -598,63 +700,10 @@ public static class AmbienteTerreno
     static void AsegurarColliderTroncoInterno(GameObject go)
     {
         QuitarColliders(go);
+        DesactivarMeshCollidersHojas(go);
 
-        MeshFilter colliderMesh = null;
-        foreach (var t in go.GetComponentsInChildren<Transform>(true))
-        {
-            if (!Contiene(t.name, "collider"))
-                continue;
-            if (!t.TryGetComponent(out MeshFilter filtro))
-                continue;
-            colliderMesh = filtro;
-            break;
-        }
-
-        if (colliderMesh != null && colliderMesh.sharedMesh != null)
-        {
-            var host = colliderMesh.gameObject;
-            if (!host.TryGetComponent(out MeshCollider col))
-                col = host.AddComponent<MeshCollider>();
-            col.sharedMesh = colliderMesh.sharedMesh;
-            col.convex = false;
-            col.isTrigger = false;
-            if (host.TryGetComponent(out Renderer rend) && Contiene(colliderMesh.name, "collider"))
-                rend.enabled = false;
-            return;
-        }
-
-        bool soloTronco = TryBoundsTronco(go, out var world);
-        if (!soloTronco)
-            world = BoundsTroncoPorForma(go, out soloTronco);
-        AplicarCapsulaTronco(go, world, soloTronco);
-    }
-
-    static Bounds BoundsTroncoPorForma(GameObject go, out bool soloTronco)
-    {
-        soloTronco = false;
-        Bounds? mejor = null;
-        float mejorRatio = 0f;
-        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
-        {
-            if (EsFollaje(r.gameObject.name))
-                continue;
-            var b = r.bounds;
-            float xz = Mathf.Max(Mathf.Min(b.size.x, b.size.z), 0.05f);
-            float ratio = b.size.y / xz;
-            if (ratio > mejorRatio && b.size.y > 1.2f)
-            {
-                mejorRatio = ratio;
-                mejor = b;
-            }
-        }
-
-        if (mejor.HasValue && mejorRatio > 2.2f)
-        {
-            soloTronco = true;
-            return mejor.Value;
-        }
-
-        return BoundsDe(go);
+        var world = BoundsTroncoVertical(go, out bool arbusto);
+        AplicarCapsulaTronco(go, world, arbusto);
     }
 
     static bool EsCorteza(string nombre)
@@ -664,150 +713,291 @@ public static class AmbienteTerreno
             || Contiene(nombre, "PalmaTerreno") || Contiene(nombre, "Corteza");
     }
 
-    static bool TryBoundsTronco(GameObject go, out Bounds world)
+    static Bounds BoundsTroncoVertical(GameObject go, out bool arbusto)
     {
-        world = new Bounds();
-        bool any = false;
+        arbusto = false;
+        var puntos = new List<Vector3>(512);
+        RecolectarPuntosTronco(go, puntos);
 
-        foreach (var filtro in go.GetComponentsInChildren<MeshFilter>(true))
+        if (puntos.Count < 6)
         {
-            var mesh = filtro.sharedMesh;
-            if (mesh == null || mesh.vertexCount == 0)
-                continue;
+            arbusto = true;
+            var full = BoundsDe(go);
+            return new Bounds(
+                new Vector3(full.center.x, full.min.y + 0.52f, full.center.z),
+                new Vector3(0.68f, 1.05f, 0.68f));
+        }
 
-            var rend = filtro.GetComponent<Renderer>();
-            var mats = rend != null ? rend.sharedMaterials : null;
-            int subs = Mathf.Max(mesh.subMeshCount, 1);
-            string objName = filtro.gameObject.name;
-            bool objCorteza = EsCorteza(objName);
-            bool objFollaje = EsFollaje(objName);
+        float yMin = puntos[0].y;
+        float yMax = puntos[0].y;
+        for (int i = 1; i < puntos.Count; i++)
+        {
+            float y = puntos[i].y;
+            if (y < yMin) yMin = y;
+            if (y > yMax) yMax = y;
+        }
 
-            for (int s = 0; s < subs; s++)
+        float alto = yMax - yMin;
+        if (alto < 0.35f)
+        {
+            arbusto = true;
+            float cx0 = 0f, cz0 = 0f;
+            for (int i = 0; i < puntos.Count; i++)
             {
-                string matName = (mats != null && s < mats.Length && mats[s] != null)
-                    ? mats[s].name
-                    : objName;
-                if (EsFollaje(matName) || (objFollaje && !EsCorteza(matName)))
-                    continue;
+                cx0 += puntos[i].x;
+                cz0 += puntos[i].z;
+            }
+            cx0 /= puntos.Count;
+            cz0 /= puntos.Count;
+            return new Bounds(new Vector3(cx0, yMin + 0.52f, cz0), new Vector3(0.68f, 1.05f, 0.68f));
+        }
 
-                bool incluir = objCorteza || EsCorteza(matName)
-                    || (subs > 1 && !EsFollaje(matName));
-                if (!incluir)
-                    continue;
+        float yLo = yMin + alto * 0.03f;
+        float yHi = yMin + Mathf.Max(0.4f, alto * 0.22f);
+        float cx = 0f, cz = 0f;
+        int nLow = 0;
+        var radios = new List<float>(128);
+        for (int i = 0; i < puntos.Count; i++)
+        {
+            var p = puntos[i];
+            if (p.y < yLo || p.y > yHi)
+                continue;
+            cx += p.x;
+            cz += p.z;
+            nLow++;
+        }
 
-                if (!mesh.isReadable)
-                {
-                    if (rend == null)
-                        continue;
-                    if (!any)
-                        world = rend.bounds;
-                    else
-                        world.Encapsulate(rend.bounds);
-                    any = true;
-                    continue;
-                }
-
-                int[] tris;
-                try
-                {
-                    tris = mesh.GetTriangles(s);
-                }
-                catch (System.Exception)
-                {
-                    continue;
-                }
-
-                if (tris == null || tris.Length == 0)
-                    continue;
-
-                var verts = mesh.vertices;
-                var used = new bool[verts.Length];
-                for (int i = 0; i < tris.Length; i++)
-                {
-                    int idx = tris[i];
-                    if ((uint)idx >= (uint)verts.Length || used[idx])
-                        continue;
-                    used[idx] = true;
-                    var p = filtro.transform.TransformPoint(verts[idx]);
-                    if (!any)
-                    {
-                        world = new Bounds(p, Vector3.zero);
-                        any = true;
-                    }
-                    else
-                        world.Encapsulate(p);
-                }
+        if (nLow < 4)
+        {
+            cx = 0f;
+            cz = 0f;
+            nLow = puntos.Count;
+            for (int i = 0; i < puntos.Count; i++)
+            {
+                cx += puntos[i].x;
+                cz += puntos[i].z;
             }
         }
 
-        if (any)
-            return true;
+        cx /= nLow;
+        cz /= nLow;
 
-        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+        for (int i = 0; i < puntos.Count; i++)
         {
-            if (EsFollaje(r.gameObject.name) && !EsCorteza(r.gameObject.name))
+            var p = puntos[i];
+            if (p.y < yLo || p.y > yHi)
                 continue;
-            bool corteza = EsCorteza(r.gameObject.name);
-            if (!corteza && r.sharedMaterials != null)
-            {
-                for (int i = 0; i < r.sharedMaterials.Length; i++)
-                {
-                    if (r.sharedMaterials[i] != null && EsCorteza(r.sharedMaterials[i].name))
-                    {
-                        corteza = true;
-                        break;
-                    }
-                }
-            }
-            if (!corteza)
-                continue;
-            if (!any)
-                world = r.bounds;
-            else
-                world.Encapsulate(r.bounds);
-            any = true;
+            float dx = p.x - cx;
+            float dz = p.z - cz;
+            radios.Add(Mathf.Sqrt(dx * dx + dz * dz));
         }
 
-        return any;
+        if (radios.Count == 0)
+        {
+            for (int i = 0; i < puntos.Count; i++)
+            {
+                float dx = puntos[i].x - cx;
+                float dz = puntos[i].z - cz;
+                radios.Add(Mathf.Sqrt(dx * dx + dz * dz));
+            }
+        }
+
+        float rBase = Mathf.Max(Percentil(radios, 0.8f), 0.12f);
+        float rLim = rBase * 2.55f;
+        float yTronco = yMin;
+        const int bands = 18;
+        for (int b = 0; b < bands; b++)
+        {
+            float a = yMin + alto * (b / (float)bands);
+            float c = yMin + alto * ((b + 1) / (float)bands);
+            int count = 0;
+            float sumR = 0f;
+            float maxR = 0f;
+            for (int i = 0; i < puntos.Count; i++)
+            {
+                var p = puntos[i];
+                if (p.y < a || p.y > c)
+                    continue;
+                float dx = p.x - cx;
+                float dz = p.z - cz;
+                float r = Mathf.Sqrt(dx * dx + dz * dz);
+                sumR += r;
+                if (r > maxR) maxR = r;
+                count++;
+            }
+
+            if (count < 3)
+                continue;
+
+            float medio = sumR / count;
+            bool copa = b > 2 && (medio > rLim || maxR > rBase * 4.2f);
+            if (copa)
+                break;
+            yTronco = c;
+        }
+
+        float h = yTronco - yMin;
+        if (h < 1.15f || (h < 2.15f && rBase > h * 0.48f))
+        {
+            arbusto = true;
+            return new Bounds(new Vector3(cx, yMin + 0.52f, cz), new Vector3(0.68f, 1.05f, 0.68f));
+        }
+
+        float radius = Mathf.Clamp(rBase * 1.06f, 0.16f, 1.4f);
+        float height = Mathf.Clamp(h * 1.02f, 1.3f, 16f);
+        return new Bounds(
+            new Vector3(cx, yMin + height * 0.5f, cz),
+            new Vector3(radius * 2f, height, radius * 2f));
     }
 
-    static void AplicarCapsulaTronco(GameObject go, Bounds world, bool soloTronco)
+    static void RecolectarPuntosTronco(GameObject go, List<Vector3> puntos)
     {
-        var t = go.transform.Find("TroncoCollider");
-        GameObject colGo;
-        if (t == null)
+        foreach (var filtro in go.GetComponentsInChildren<MeshFilter>(true))
+            RecolectarDeMesh(filtro.gameObject, filtro.sharedMesh, filtro.transform.localToWorldMatrix, puntos);
+        foreach (var skin in go.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            RecolectarDeMesh(skin.gameObject, skin.sharedMesh, skin.localToWorldMatrix, puntos);
+    }
+
+    static void RecolectarDeMesh(GameObject host, Mesh mesh, Matrix4x4 l2w, List<Vector3> puntos)
+    {
+        if (mesh == null || mesh.vertexCount == 0)
+            return;
+        if (host.name == "TroncoCollider")
+            return;
+        if (EsFollaje(host.name) && !EsCorteza(host.name))
+            return;
+        if (host.TryGetComponent(out Renderer rend) && EsTarjeta(rend.bounds, host.name))
+            return;
+
+        host.TryGetComponent(out Renderer r);
+        var mats = r != null ? r.sharedMaterials : null;
+        int subs = Mathf.Max(mesh.subMeshCount, 1);
+
+        if (!mesh.isReadable)
         {
-            colGo = new GameObject("TroncoCollider");
-            t = colGo.transform;
+            if (r != null)
+                AgregarEsquinas(r.bounds, puntos);
+            return;
+        }
+
+        Vector3[] verts;
+        try
+        {
+            verts = mesh.vertices;
+        }
+        catch (System.Exception)
+        {
+            return;
+        }
+
+        if (verts == null || verts.Length == 0)
+            return;
+
+        for (int s = 0; s < subs; s++)
+        {
+            string matName = (mats != null && s < mats.Length && mats[s] != null)
+                ? mats[s].name
+                : host.name;
+            if (EsFollaje(matName) && !EsCorteza(matName))
+                continue;
+
+            int[] tris;
+            try
+            {
+                tris = mesh.GetTriangles(s);
+            }
+            catch (System.Exception)
+            {
+                continue;
+            }
+
+            if (tris == null || tris.Length == 0)
+                continue;
+
+            int stride = tris.Length > 18000 ? 12 : 3;
+            for (int i = 0; i < tris.Length; i += stride)
+            {
+                int idx = tris[i];
+                if ((uint)idx >= (uint)verts.Length)
+                    continue;
+                puntos.Add(l2w.MultiplyPoint3x4(verts[idx]));
+            }
+        }
+    }
+
+    static void AgregarEsquinas(Bounds b, List<Vector3> puntos)
+    {
+        var e = b.extents;
+        var c = b.center;
+        puntos.Add(c + new Vector3(-e.x, -e.y, -e.z));
+        puntos.Add(c + new Vector3(e.x, -e.y, -e.z));
+        puntos.Add(c + new Vector3(-e.x, -e.y, e.z));
+        puntos.Add(c + new Vector3(e.x, -e.y, e.z));
+        puntos.Add(c + new Vector3(-e.x, e.y, -e.z));
+        puntos.Add(c + new Vector3(e.x, e.y, -e.z));
+        puntos.Add(c + new Vector3(-e.x, e.y, e.z));
+        puntos.Add(c + new Vector3(e.x, e.y, e.z));
+    }
+
+    static float Percentil(List<float> values, float p)
+    {
+        if (values.Count == 0)
+            return 0f;
+        values.Sort();
+        int i = Mathf.Clamp(Mathf.RoundToInt((values.Count - 1) * p), 0, values.Count - 1);
+        return values[i];
+    }
+
+    static void AplicarCapsulaTronco(GameObject go, Bounds world, bool arbusto)
+    {
+        var hijos = go.GetComponentsInChildren<Transform>(true);
+        for (int i = hijos.Length - 1; i >= 0; i--)
+        {
+            if (hijos[i] != null && hijos[i] != go.transform && hijos[i].name == "TroncoCollider")
+                Object.DestroyImmediate(hijos[i].gameObject);
+        }
+
+        if (!go.TryGetComponent(out CapsuleCollider cap))
+            cap = go.AddComponent<CapsuleCollider>();
+
+        float worldH;
+        float worldR;
+        Vector3 center;
+        if (arbusto)
+        {
+            worldH = 1.05f;
+            worldR = 0.34f;
+            center = new Vector3(world.center.x, world.min.y + worldH * 0.5f, world.center.z);
         }
         else
-            colGo = t.gameObject;
+        {
+            worldH = Mathf.Clamp(world.size.y, 1.3f, 16f);
+            worldR = Mathf.Clamp(Mathf.Min(world.size.x, world.size.z) * 0.5f, 0.16f, 1.4f);
+            center = new Vector3(world.center.x, world.min.y + worldH * 0.5f, world.center.z);
+        }
 
-        float worldH = Mathf.Clamp(world.size.y * (soloTronco ? 1.02f : 0.68f), 1.8f, 12f);
-        float worldR = soloTronco
-            ? Mathf.Min(world.size.x, world.size.z) * 0.42f
-            : 0.32f;
-        worldR = Mathf.Clamp(worldR, 0.18f, soloTronco ? 0.85f : 0.40f);
+        cap.direction = 1;
+        cap.isTrigger = false;
+        cap.center = go.transform.InverseTransformPoint(center);
 
-        // World-up capsule on a fresh child. FBX roots are often rotated -90°,
-        // so a capsule on Palm(Clone) itself lies on its side and misses the trunk.
-        t.SetParent(null);
-        t.position = world.center;
-        t.rotation = Quaternion.identity;
-        t.localScale = Vector3.one;
-        t.SetParent(go.transform, true);
-
-        if (!colGo.TryGetComponent(out CapsuleCollider cap))
-            cap = colGo.AddComponent<CapsuleCollider>();
-
-        var ls = t.lossyScale;
+        var ls = go.transform.lossyScale;
         float sy = Mathf.Max(Mathf.Abs(ls.y), 1e-4f);
         float sxz = Mathf.Max(Mathf.Abs(ls.x), Mathf.Abs(ls.z), 1e-4f);
-        cap.direction = 1;
-        cap.center = Vector3.zero;
         cap.height = worldH / sy;
         cap.radius = worldR / sxz;
-        cap.isTrigger = false;
+    }
+
+    static void DesactivarMeshCollidersHojas(GameObject go)
+    {
+        var cols = go.GetComponentsInChildren<MeshCollider>(true);
+        for (int i = 0; i < cols.Length; i++)
+        {
+            var col = cols[i];
+            if (col == null)
+                continue;
+            if (EsFollaje(col.gameObject.name) && !EsCorteza(col.gameObject.name))
+                col.enabled = false;
+        }
     }
 
     static void QuitarColliders(GameObject go)
@@ -819,7 +1009,8 @@ public static class AmbienteTerreno
 
     static void AgregarCajaPorBounds(GameObject go)
     {
-        var box = go.AddComponent<BoxCollider>();
+        if (!go.TryGetComponent(out BoxCollider box))
+            box = go.AddComponent<BoxCollider>();
         var world = BoundsDe(go);
         box.center = go.transform.InverseTransformPoint(world.center);
         box.size = TamanoLocal(go.transform, world.size);
@@ -840,7 +1031,17 @@ public static class AmbienteTerreno
         return Contiene(nombre, "Leaf") || Contiene(nombre, "Leaves")
             || Contiene(nombre, "Hoja") || Contiene(nombre, "Hojas")
             || Contiene(nombre, "Branch") || Contiene(nombre, "Fronda")
-            || Contiene(nombre, "Mesh_1");
+            || Contiene(nombre, "Mesh_1") || Contiene(nombre, "collider")
+            || Contiene(nombre, "Card") || Contiene(nombre, "Billboard");
+    }
+
+    static bool EsTarjeta(Bounds b, string nombre)
+    {
+        if (EsCorteza(nombre))
+            return false;
+        float xz = Mathf.Max(b.size.x, b.size.z, 0.05f);
+        float thin = Mathf.Min(b.size.x, Mathf.Min(b.size.y, b.size.z));
+        return b.size.y < xz * 0.22f || thin < xz * 0.08f;
     }
 
     static Material RocaMat()

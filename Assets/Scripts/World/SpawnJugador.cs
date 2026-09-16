@@ -15,10 +15,7 @@ public class SpawnJugador : MonoBehaviour
 
     void SpawnPlayer()
     {
-        var puntos = GameObject.FindGameObjectsWithTag("SpawnMike");
-        Transform spawn = puntos.Length > 0 ? puntos[UnityEngine.Random.Range(0, puntos.Length)].transform : null;
-        Vector3 pos = spawn != null ? spawn.position : new Vector3(0, 1, -14);
-        Quaternion rot = spawn != null ? spawn.rotation : Quaternion.identity;
+        PuntoSpawn(out Vector3 pos, out Quaternion rot);
 
         GameObject source = mikePrefab != null
             ? mikePrefab
@@ -37,13 +34,13 @@ public class SpawnJugador : MonoBehaviour
         player.name = "Mike";
         player.tag = "Player";
 
-        if (player.GetComponent<CharacterController>() == null)
-        {
-            var cc = player.AddComponent<CharacterController>();
-            cc.height = 2f;
-            cc.center = new Vector3(0, 1f, 0);
-            cc.radius = 0.4f;
-        }
+        if (!player.TryGetComponent(out CharacterController cc))
+            cc = player.AddComponent<CharacterController>();
+        cc.height = 2f;
+        cc.center = new Vector3(0, 1f, 0);
+        cc.radius = 0.4f;
+        cc.detectCollisions = true;
+        cc.skinWidth = 0.08f;
 
         AsegurarAnimacion(player);
         ReconectarMateriales.EnMike(player);
@@ -77,6 +74,28 @@ public class SpawnJugador : MonoBehaviour
         }
     }
 
+    public static void PuntoSpawn(out Vector3 pos, out Quaternion rot)
+    {
+        var puntos = GameObject.FindGameObjectsWithTag("SpawnMike");
+        Transform spawn = puntos.Length > 0 ? puntos[UnityEngine.Random.Range(0, puntos.Length)].transform : null;
+        pos = spawn != null ? spawn.position : new Vector3(0, 1, -14);
+        rot = spawn != null ? spawn.rotation : Quaternion.identity;
+    }
+
+    public static void Recolocar(Transform player)
+    {
+        if (player == null)
+            return;
+
+        PuntoSpawn(out Vector3 pos, out Quaternion rot);
+        var cc = player.GetComponent<CharacterController>();
+        if (cc != null)
+            cc.enabled = false;
+        player.SetPositionAndRotation(pos, rot);
+        if (cc != null)
+            cc.enabled = true;
+    }
+
     static void AsegurarAnimacion(GameObject player)
     {
         var animator = player.GetComponent<Animator>();
@@ -102,6 +121,8 @@ public class SpawnJugador : MonoBehaviour
             {
                 bool loop = take == "Espera" || take == "Camina" || take == "Corre";
                 state.wrapMode = loop ? WrapMode.Loop : WrapMode.Once;
+                if (take == "Corre")
+                    state.speed = 1.75f;
             }
         }
 

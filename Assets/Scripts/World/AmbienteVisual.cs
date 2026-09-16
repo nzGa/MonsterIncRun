@@ -19,9 +19,27 @@ public static class AmbienteVisual
 
         RepararShader(sky, Shader.Find("Skybox/6 Sided") ?? Shader.Find("Skybox/Cubemap"));
         RenderSettings.skybox = sky;
-        RenderSettings.ambientMode = AmbientMode.Skybox;
-        RenderSettings.ambientIntensity = 1f;
+        RenderSettings.ambientMode = AmbientMode.Trilight;
+        // Warm fill so grass/Mike stay readable in shadow without a cyan sky wash.
+        RenderSettings.ambientSkyColor = new Color(0.70f, 0.74f, 0.78f);
+        RenderSettings.ambientEquatorColor = new Color(0.56f, 0.60f, 0.52f);
+        RenderSettings.ambientGroundColor = new Color(0.40f, 0.42f, 0.32f);
+        RenderSettings.ambientIntensity = 1.25f;
+        RenderSettings.defaultReflectionMode = DefaultReflectionMode.Skybox;
+        RenderSettings.reflectionIntensity = 1f;
+        QualitySettings.realtimeReflectionProbes = true;
         DynamicGI.UpdateEnvironment();
+
+        var sol = new Color(1f, 0.975f, 0.90f);
+        var luces = Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude);
+        for (int i = 0; i < luces.Length; i++)
+        {
+            if (luces[i] == null || luces[i].type != LightType.Directional)
+                continue;
+            luces[i].intensity = 0.9f;
+            luces[i].color = sol;
+            luces[i].shadowStrength = 0.55f;
+        }
     }
 
     public static void AplicarSuelo(GameObject suelo)
@@ -51,7 +69,7 @@ public static class AmbienteVisual
             Resources.Load<Material>("Models/Materials/Cesped"),
             CargarTextura(TexCesped, "Assets/Art/Textures/Grass (Hill).psd"),
             40f,
-            new Color(0.32f, 0.48f, 0.20f));
+            new Color(0.42f, 0.52f, 0.30f));
     }
 
     public static void AsignarPupila(GameObject mike)
@@ -86,9 +104,12 @@ public static class AmbienteVisual
             bool changed = false;
             var siguiente = (Material[])shared.Clone();
             int disco = ReconectarMateriales.IndiceDiscoFacial(renderer);
+            var rendererName = renderer.gameObject.name;
             for (int i = 0; i < shared.Length; i++)
             {
-                if (!EsSlotOjo(shared[i], renderer, shared.Length, i, disco))
+                if (!ReconectarMateriales.EsSlotOjo(i, shared.Length, shared[i], rendererName, disco))
+                    continue;
+                if (ReconectarMateriales.EsSlotBoca(i, shared.Length, shared[i], rendererName))
                     continue;
 
                 if (ojo != null)
@@ -96,7 +117,8 @@ public static class AmbienteVisual
                     siguiente[i] = ojo;
                     changed = true;
                 }
-                else if (tex != null && siguiente[i] != null)
+                else if (tex != null && siguiente[i] != null
+                    && !ReconectarMateriales.EsSlotBoca(i, shared.Length, siguiente[i], rendererName))
                 {
                     RepararShader(siguiente[i]);
                     siguiente[i].mainTexture = tex;
@@ -112,36 +134,8 @@ public static class AmbienteVisual
             if (changed)
                 renderer.sharedMaterials = siguiente;
         }
-    }
 
-    static bool EsSlotOjo(Material material, Renderer renderer, int slots, int slot, int disco)
-    {
-        var nombreGuard = material != null ? material.name : null;
-        if (nombreGuard != null && nombreGuard.EndsWith(" (Instance)"))
-            nombreGuard = nombreGuard.Substring(0, nombreGuard.Length - " (Instance)".Length);
-        if (!string.IsNullOrEmpty(nombreGuard)
-            && nombreGuard.IndexOf("Piel", System.StringComparison.OrdinalIgnoreCase) >= 0)
-            return false;
-
-        if (disco >= 0 && slot == disco)
-            return true;
-
-        if (ReconectarMateriales.EsNombreOjo(renderer != null ? renderer.gameObject.name : null)
-            && slots <= 1)
-            return true;
-
-        var nombre = material != null ? material.name : null;
-        if (nombre != null && nombre.EndsWith(" (Instance)"))
-            nombre = nombre.Substring(0, nombre.Length - " (Instance)".Length);
-        if (string.IsNullOrEmpty(nombre))
-            return false;
-        if (nombre.IndexOf("Lengua", System.StringComparison.OrdinalIgnoreCase) >= 0
-            || nombre.IndexOf("Paladar", System.StringComparison.OrdinalIgnoreCase) >= 0
-            || nombre.IndexOf("Diente", System.StringComparison.OrdinalIgnoreCase) >= 0
-            || nombre.IndexOf("Unia", System.StringComparison.OrdinalIgnoreCase) >= 0
-            || nombre.IndexOf("Piel", System.StringComparison.OrdinalIgnoreCase) >= 0)
-            return false;
-        return ReconectarMateriales.EsNombreOjo(nombre);
+        ReconectarMateriales.AsegurarBoca(mike);
     }
 
     static void AplicarTexturaTiled(GameObject go, Material fuente, Texture textura, float tile, Color fallback)
@@ -249,5 +243,81 @@ public static class AmbienteVisual
             material.mainTexture = tex;
         if (material.HasProperty("_Color"))
             material.color = color;
+    }
+
+    public static void AsegurarSondaReflexion(GameObject fabrica)
+    {
+        QualitySettings.realtimeReflectionProbes = true;
+
+        var host = GameObject.Find("SondaReflexionFabrica");
+        if (host == null)
+            host = new GameObject("SondaReflexionFabrica");
+
+        var bounds = BoundsParaSonda(fabrica);
+        host.transform.position = bounds.center;
+
+        if (!host.TryGetComponent(out ReflectionProbe probe))
+            probe = host.AddComponent<ReflectionProbe>();
+
+        // Opaque windows hide the interior; the cubemap should be sky, Mike, and terrain.
+        const int capaFabrica = 30;
+        if (fabrica != null)
+        {
+            foreach (var t in fabrica.GetComponentsInChildren<Transform>(true))
+                t.gameObject.layer = capaFabrica;
+        }
+
+        probe.enabled = true;
+        probe.mode = ReflectionProbeMode.Realtime;
+        probe.refreshMode = ReflectionProbeRefreshMode.EveryFrame;
+        probe.timeSlicingMode = ReflectionProbeTimeSlicingMode.NoTimeSlicing;
+        probe.boxProjection = true;
+        probe.intensity = 1.2f;
+        probe.importance = 10;
+        probe.resolution = 128;
+        probe.hdr = true;
+        probe.nearClipPlane = 0.3f;
+        probe.farClipPlane = Mathf.Max(70f, bounds.extents.magnitude * 2.2f);
+        probe.shadowDistance = 42f;
+        probe.clearFlags = ReflectionProbeClearFlags.Skybox;
+        probe.cullingMask = ~(1 << capaFabrica);
+        probe.size = bounds.size;
+        probe.center = Vector3.zero;
+        probe.blendDistance = 10f;
+        probe.RenderProbe();
+    }
+
+    static Bounds BoundsParaSonda(GameObject fabrica)
+    {
+        Bounds? acc = null;
+        if (fabrica != null)
+        {
+            foreach (var r in fabrica.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r == null || r is ParticleSystemRenderer)
+                    continue;
+                if (!acc.HasValue)
+                    acc = r.bounds;
+                else
+                {
+                    var t = acc.Value;
+                    t.Encapsulate(r.bounds);
+                    acc = t;
+                }
+            }
+        }
+
+        var bounds = acc ?? new Bounds(new Vector3(0f, 10f, 0f), new Vector3(56f, 28f, 56f));
+        bounds.Expand(26f);
+        if (bounds.size.y < 32f)
+        {
+            var c = bounds.center;
+            c.y = Mathf.Max(c.y, 12f);
+            bounds.center = c;
+            var s = bounds.size;
+            s.y = 36f;
+            bounds.size = s;
+        }
+        return bounds;
     }
 }

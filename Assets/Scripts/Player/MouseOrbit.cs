@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 
+// Orbits Camera.main around this transform. Mouse yaw never rotates the player.
 public class MouseOrbit : MonoBehaviour
 {
     public float alturaOjos = 0.6f;
@@ -13,6 +14,7 @@ public class MouseOrbit : MonoBehaviour
     float _mouseX;
     float _mouseY;
     float _relativeDistance;
+    bool _yawInicializado;
 
     void Start()
     {
@@ -20,9 +22,16 @@ public class MouseOrbit : MonoBehaviour
         if (_mainCamera == null)
             return;
 
-        Vector3 angles = _mainCamera.eulerAngles;
-        _mouseX = angles.y;
-        _mouseY = angles.x;
+        if (!_yawInicializado)
+        {
+            Vector3 angles = _mainCamera.eulerAngles;
+            _mouseX = angles.y;
+            float pitch = angles.x;
+            if (pitch > 180f)
+                pitch -= 360f;
+            _mouseY = ClampAngle(pitch, yMinLimit, yMaxLimit);
+            _yawInicializado = true;
+        }
         _relativeDistance = cameraIniDistance;
         AplicarTransformCamara();
     }
@@ -46,25 +55,24 @@ public class MouseOrbit : MonoBehaviour
 
     static bool PuedeOrbitar()
     {
-        if (!GestionaMultiJugador.ControlJugadorActivo)
-            return false;
-        if (Application.isEditor && Cursor.lockState != CursorLockMode.Locked)
-            return Input.GetMouseButton(1);
-        return true;
+        return GestionaMultiJugador.ControlJugadorActivo;
     }
 
     void ResolverCamara()
     {
-        if (Camera.main != null)
-            _mainCamera = Camera.main.transform;
+        if (Camera.main == null)
+            return;
+
+        _mainCamera = Camera.main.transform;
+        if (_mainCamera.parent != null)
+            _mainCamera.SetParent(null, true);
     }
 
     void AplicarTransformCamara()
     {
-        Quaternion rotation = Quaternion.Euler(_mouseY, _mouseX, 0);
+        Quaternion rotation = Quaternion.Euler(_mouseY, _mouseX, 0f);
         Vector3 position = rotation * new Vector3(0f, alturaOjos, -_relativeDistance) + transform.position;
-        _mainCamera.rotation = rotation;
-        _mainCamera.position = position;
+        _mainCamera.SetPositionAndRotation(position, rotation);
     }
 
     static float ClampAngle(float angle, float min, float max)

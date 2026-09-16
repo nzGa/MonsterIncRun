@@ -22,18 +22,20 @@ public static class ProjectBootstrap
     static readonly (string name, Color color)[] PropMaterials =
     {
         ("No Name", Color.white),
-        ("walls", new Color(0.78f, 0.72f, 0.58f)),
-        ("wallbase", new Color(0.55f, 0.48f, 0.38f)),
-        ("roof1", new Color(0.42f, 0.26f, 0.18f)),
-        ("roof2", new Color(0.32f, 0.20f, 0.15f)),
+        ("walls", new Color(0.86f, 0.84f, 0.80f)),
+        ("wallbase", new Color(0.84f, 0.82f, 0.78f)),
+        ("walltop", new Color(0.86f, 0.84f, 0.80f)),
+        ("roof1", new Color(0.92f, 0.94f, 0.96f)),
+        ("roof2", new Color(0.90f, 0.92f, 0.94f)),
         ("ground", new Color(0.42f, 0.40f, 0.36f)),
         ("ground1", new Color(0.38f, 0.36f, 0.32f)),
         ("ground3", new Color(0.34f, 0.32f, 0.28f)),
-        ("glass", new Color(0.55f, 0.72f, 0.82f, 0.45f)),
-        ("window", new Color(0.25f, 0.32f, 0.38f)),
-        ("fence", new Color(0.40f, 0.40f, 0.38f)),
-        ("pipe1", new Color(0.93f, 0.92f, 0.88f)),
-        ("pipe2", new Color(0.88f, 0.89f, 0.92f)),
+        ("glass", new Color(0.58f, 0.72f, 0.78f, 1f)),
+        ("window", new Color(0.58f, 0.72f, 0.78f, 1f)),
+        ("fence", new Color(0.85f, 0.85f, 0.86f)),
+        ("pipe1", Color.white),
+        ("pipe2", new Color(0.96f, 0.97f, 1f)),
+        ("chim", new Color(0.92f, 0.94f, 0.96f)),
         ("15_verti", new Color(0.62f, 0.58f, 0.48f)),
         ("7cdred", new Color(0.72f, 0.16f, 0.14f)),
         ("7cdcolor", new Color(0.20f, 0.55f, 0.28f)),
@@ -53,8 +55,8 @@ public static class ProjectBootstrap
 
     static readonly (string name, Color color)[] MikeMaterials =
     {
-        ("Piel", new Color(0.333f, 0.596f, 0.125f)),
-        ("Lengua", new Color(0.75f, 0.22f, 0.28f)),
+        ("Piel", new Color(0.50f, 0.78f, 0.15f)),
+        ("Lengua", new Color(0.86f, 0.12f, 0.20f)),
         ("Ojo", new Color(0.80f, 0.80f, 0.80f)),
         ("Paladar", new Color(0.65f, 0.20f, 0.22f)),
         ("Unias", new Color(0.85f, 0.82f, 0.70f)),
@@ -82,6 +84,8 @@ public static class ProjectBootstrap
         EnsurePlayModeStartScene();
         EnsureMaterialsBesideFbx();
         EnsurePipeMetalTextures();
+        EnsureFactoryAlbedos();
+        EnsureGlassMaterials();
         ReimportMikeAsLegacy();
         EnsureUiSprites();
         EnsureEnvironmentAssets();
@@ -222,7 +226,8 @@ public static class ProjectBootstrap
             if (importer == null)
                 continue;
             if (importer.animationType == ModelImporterAnimationType.Legacy
-                && importer.materialLocation == ModelImporterMaterialLocation.InPrefab)
+                && importer.materialLocation == ModelImporterMaterialLocation.InPrefab
+                && LegacyMikeImport.RootMotionBloqueado(importer))
                 continue;
 
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
@@ -245,11 +250,10 @@ public static class ProjectBootstrap
 
     static void EnsurePipeMetalTextures()
     {
-        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/metal.jpg");
-        if (tex == null)
-            return;
+        var metalTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Textures/metal.jpg")
+            ?? AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Resources/Textures/metal.jpg");
 
-        foreach (var name in new[] { "pipe1", "pipe2", "metal" })
+        foreach (var name in new[] { "pipe1", "pipe2", "fence", "metal" })
         {
             var path = Path.Combine(MaterialsFolder, name + ".mat").Replace('\\', '/');
             var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -258,43 +262,61 @@ public static class ProjectBootstrap
 
             AmbienteVisual.RepararShader(mat);
             bool dirty = false;
-            if (mat.HasProperty("_MainTex") && mat.mainTexture != tex)
+            bool esPipe = name.StartsWith("pipe", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "fence", StringComparison.OrdinalIgnoreCase);
+            var std = Shader.Find("Standard");
+            if (esPipe && std != null && mat.shader != std)
             {
-                mat.mainTexture = tex;
+                mat.shader = std;
                 dirty = true;
             }
 
-            bool esPipe = name.StartsWith("pipe", StringComparison.OrdinalIgnoreCase);
-            if (esPipe && mat.HasProperty("_MainTex") && mat.mainTextureScale == Vector2.one)
+            if (metalTex != null && mat.HasProperty("_MainTex") && mat.mainTexture != metalTex)
             {
-                mat.mainTextureScale = new Vector2(2f, 2f);
+                mat.mainTexture = metalTex;
                 dirty = true;
             }
 
-            if (esPipe && mat.HasProperty("_Color") && mat.color.maxColorComponent < 0.75f)
+            var tilePipe = new Vector2(5f, 2.5f);
+            if (esPipe && mat.HasProperty("_MainTex") && mat.mainTextureScale != tilePipe)
             {
-                mat.color = name == "pipe2"
-                    ? new Color(0.88f, 0.89f, 0.92f)
-                    : new Color(0.93f, 0.92f, 0.88f);
+                mat.mainTextureScale = tilePipe;
                 dirty = true;
             }
 
-            if (esPipe && mat.HasProperty("_Metallic"))
+            var colorPipe = name == "pipe2"
+                ? new Color(0.96f, 0.97f, 1f)
+                : Color.white;
+            if (esPipe && mat.HasProperty("_Color") && mat.color != colorPipe)
             {
-                float metallic = mat.GetFloat("_Metallic");
-                if (metallic > 0.4f || metallic < 0.15f)
+                mat.color = colorPipe;
+                dirty = true;
+            }
+
+            if (esPipe && mat.HasProperty("_Metallic") && !Mathf.Approximately(mat.GetFloat("_Metallic"), 0.58f))
+            {
+                mat.SetFloat("_Metallic", 0.58f);
+                dirty = true;
+            }
+
+            if (esPipe && mat.HasProperty("_Glossiness") && !Mathf.Approximately(mat.GetFloat("_Glossiness"), 0.42f))
+            {
+                mat.SetFloat("_Glossiness", 0.42f);
+                dirty = true;
+            }
+
+            if (esPipe && mat.HasProperty("_Smoothness") && !Mathf.Approximately(mat.GetFloat("_Smoothness"), 0.42f))
+            {
+                mat.SetFloat("_Smoothness", 0.42f);
+                dirty = true;
+            }
+
+            if (esPipe && mat.HasProperty("_EmissionColor"))
+            {
+                mat.DisableKeyword("_EMISSION");
+                if (mat.GetColor("_EmissionColor") != Color.black)
                 {
-                    mat.SetFloat("_Metallic", 0.28f);
-                    dirty = true;
-                }
-            }
-
-            if (esPipe && mat.HasProperty("_Glossiness"))
-            {
-                float gloss = mat.GetFloat("_Glossiness");
-                if (gloss < 0.25f || gloss > 0.7f)
-                {
-                    mat.SetFloat("_Glossiness", 0.42f);
+                    mat.SetColor("_EmissionColor", Color.black);
                     dirty = true;
                 }
             }
@@ -302,6 +324,127 @@ public static class ProjectBootstrap
             if (dirty)
                 EditorUtility.SetDirty(mat);
         }
+    }
+
+    static void EnsureFactoryAlbedos()
+    {
+        var concreto = "Assets/Art/Textures/floor_concrete.jpg";
+        var galvanizado = "Assets/Art/Textures/corrugated_galvanized.png";
+        AsignarAlbedo("walls", concreto, new Vector2(16f, 16f), new Color(0.86f, 0.84f, 0.80f));
+        AsignarAlbedo("walltop", concreto, new Vector2(12f, 12f), new Color(0.86f, 0.84f, 0.80f));
+        AsignarAlbedo("wallbase", concreto, new Vector2(10f, 10f), new Color(0.84f, 0.82f, 0.78f));
+        AsignarAlbedo("ground", "Assets/Art/Textures/floor_adoquin.jpg", new Vector2(12f, 12f), Color.white);
+        AsignarAlbedo("ground1", "Assets/Art/Textures/floor_hexagon.jpg", new Vector2(10f, 10f), Color.white);
+        AsignarAlbedo("ground3", concreto, new Vector2(10f, 10f), Color.white);
+        AsignarAlbedo("Piso", "Assets/Art/Textures/floor_adoquin.jpg", new Vector2(12f, 12f), Color.white);
+        AsignarAlbedo("fence", "Assets/Art/Textures/metal.jpg", new Vector2(5f, 2.5f), Color.white);
+        AsignarAlbedo("madera", "Assets/Art/Textures/madera.GIF", new Vector2(2.5f, 2.5f), Color.white);
+        AsignarAlbedo("15_verti", concreto, new Vector2(14f, 14f), new Color(0.86f, 0.84f, 0.80f));
+        AsignarAlbedo("chim", galvanizado, new Vector2(1.8f, 3.2f), new Color(0.92f, 0.94f, 0.96f));
+        AsignarAlbedo("roof1", galvanizado, new Vector2(1.8f, 3.2f), new Color(0.92f, 0.94f, 0.96f));
+        AsignarAlbedo("roof2", galvanizado, new Vector2(1.8f, 3.2f), new Color(0.90f, 0.92f, 0.94f));
+    }
+
+    static void EnsureGlassMaterials()
+    {
+        var tint = new Color(0.58f, 0.72f, 0.78f, 1f);
+        const float metal = 0.88f;
+        const float brillo = 0.95f;
+        const int colaGeometria = 2000;
+        var shader = Shader.Find("Standard")
+            ?? Shader.Find("Legacy Shaders/Diffuse")
+            ?? Shader.Find("Diffuse");
+
+        foreach (var name in new[] { "glass", "window" })
+        {
+            var path = Path.Combine(MaterialsFolder, name + ".mat").Replace('\\', '/');
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+                continue;
+
+            bool dirty = false;
+            if (shader != null && mat.shader != shader)
+            {
+                mat.shader = shader;
+                dirty = true;
+            }
+            if (mat.HasProperty("_MainTex") && mat.mainTexture != null)
+            {
+                mat.mainTexture = null;
+                dirty = true;
+            }
+            if (mat.HasProperty("_Color") && mat.color != tint)
+            {
+                mat.color = tint;
+                dirty = true;
+            }
+
+            mat.SetOverrideTag("RenderType", "Opaque");
+            if (mat.HasProperty("_Mode") && !Mathf.Approximately(mat.GetFloat("_Mode"), 0f))
+            {
+                mat.SetFloat("_Mode", 0f);
+                dirty = true;
+            }
+            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+            mat.SetInt("_ZWrite", 1);
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.DisableKeyword("_ALPHABLEND_ON");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            if (mat.renderQueue != colaGeometria)
+            {
+                mat.renderQueue = colaGeometria;
+                dirty = true;
+            }
+            if (mat.HasProperty("_Metallic") && !Mathf.Approximately(mat.GetFloat("_Metallic"), metal))
+            {
+                mat.SetFloat("_Metallic", metal);
+                dirty = true;
+            }
+            if (mat.HasProperty("_Glossiness") && !Mathf.Approximately(mat.GetFloat("_Glossiness"), brillo))
+            {
+                mat.SetFloat("_Glossiness", brillo);
+                dirty = true;
+            }
+            if (mat.HasProperty("_Smoothness") && !Mathf.Approximately(mat.GetFloat("_Smoothness"), brillo))
+            {
+                mat.SetFloat("_Smoothness", brillo);
+                dirty = true;
+            }
+            if (mat.HasProperty("_GlossyReflections"))
+                mat.SetFloat("_GlossyReflections", 1f);
+            if (dirty)
+                EditorUtility.SetDirty(mat);
+        }
+    }
+
+    static void AsignarAlbedo(string materialName, string texturePath, Vector2 tile, Color tint)
+    {
+        var path = Path.Combine(MaterialsFolder, materialName + ".mat").Replace('\\', '/');
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
+        if (mat == null || tex == null || !mat.HasProperty("_MainTex"))
+            return;
+
+        AmbienteVisual.RepararShader(mat);
+        bool dirty = false;
+        if (mat.mainTexture != tex)
+        {
+            mat.mainTexture = tex;
+            dirty = true;
+        }
+        if (mat.mainTextureScale != tile)
+        {
+            mat.mainTextureScale = tile;
+            dirty = true;
+        }
+        if (mat.HasProperty("_Color") && mat.color != tint)
+        {
+            mat.color = tint;
+            dirty = true;
+        }
+        if (dirty)
+            EditorUtility.SetDirty(mat);
     }
 
     static void EnsureFolder(string path)

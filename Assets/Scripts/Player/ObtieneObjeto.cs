@@ -4,85 +4,121 @@ public class ObtieneObjeto : MonoBehaviour
 {
     void OnTriggerEnter(Collider c)
     {
+        Procesar(c, true);
+    }
+
+    void OnTriggerStay(Collider c)
+    {
+        Procesar(c, false);
+    }
+
+    void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (hit != null && hit.collider != null)
+            Procesar(hit.collider, true);
+    }
+
+    void Procesar(Collider c, bool entrar)
+    {
+        if (c == null)
+            return;
+
         var pickup = RaizPickup(c.transform);
         if (pickup == null)
             return;
 
-        switch (pickup.tag)
+        if (pickup.CompareTag("Puerta"))
         {
-            case "Tubo":
-                if (!ObjetosPorJugador.TieneTubo)
-                {
-                    GameGUI.MjeTieneTubo = true;
-                    ObjetosPorJugador.TieneTubo = true;
-                    Destroy(pickup.gameObject);
-                }
-                else
-                    GameGUI.MjeYaTenesTubo = true;
-                break;
-
-            case "Caja":
-                var contenido = pickup.GetComponent<ContenidoCaja>()
-                    ?? pickup.GetComponentInChildren<ContenidoCaja>();
-                int item = contenido != null ? contenido.NumeroItem : 0;
-                switch (item)
-                {
-                    case 0:
-                        // En un jugador la media te contamina a vos (en multi contaminaba a los demas).
-                        if (ObjetosPorJugador.TieneCasco)
-                            GameGUI.MjeCascoUsado = true;
-                        else
-                        {
-                            GameGUI.MjeTieneZoquete = true;
-                            ObjetosPorJugador.TieneZoquete = true;
-                        }
-                        Destroy(pickup.gameObject);
-                        break;
-                    case 1:
-                        if (ObjetosPorJugador.TieneCasco)
-                            GameGUI.MjeYaTenesItem = true;
-                        else
-                        {
-                            GameGUI.MjeTieneCasco = true;
-                            ObjetosPorJugador.TieneCasco = true;
-                        }
-                        Destroy(pickup.gameObject);
-                        break;
-                    case 2:
-                        if (ObjetosPorJugador.TieneZapato)
-                            GameGUI.MjeYaTenesItem = true;
-                        else
-                        {
-                            ObjetosPorJugador.TieneZapato = true;
-                            GameGUI.MensajeZapato = true;
-                        }
-                        Destroy(pickup.gameObject);
-                        break;
-                }
-                break;
-
-            case "Ducha":
-                GameGUI.MjeDescontaminado = true;
-                ObjetosPorJugador.TieneZoquete = false;
-                break;
-
-            case "Puerta":
-                if (ObjetosPorJugador.TieneTubo)
-                {
-                    if (!ObjetosPorJugador.TieneZoquete)
-                    {
-                        ObjetosPorJugador.JugadorHaGanado = true;
-                        var manager = GameObject.FindGameObjectWithTag("GameManager");
-                        if (manager != null)
-                            manager.GetComponent<GestionaMultiJugador>().TerminarJuego();
-                    }
-                    else
-                        GameGUI.MjeContaminado = true;
-                }
-                else
-                    ObjetosPorJugador.TocandoPuerta = true;
-                break;
+            IntentarPuerta();
+            return;
         }
+
+        if (!entrar)
+            return;
+
+        if (pickup.CompareTag("Tubo"))
+        {
+            if (!ObjetosPorJugador.TieneTubo)
+            {
+                GameGUI.MjeTieneTubo = true;
+                ObjetosPorJugador.TieneTubo = true;
+                Destroy(pickup.gameObject);
+            }
+            else
+                GameGUI.MjeYaTenesTubo = true;
+            return;
+        }
+
+        if (pickup.CompareTag("Caja"))
+        {
+            var contenido = pickup.GetComponent<ContenidoCaja>()
+                ?? pickup.GetComponentInChildren<ContenidoCaja>();
+            int item = contenido != null ? contenido.NumeroItem : 0;
+            switch (item)
+            {
+                case 0:
+                    // En un jugador la media te contamina a vos (en multi contaminaba a los demas).
+                    if (ObjetosPorJugador.TieneCasco)
+                        GameGUI.MjeCascoUsado = true;
+                    else
+                    {
+                        GameGUI.MjeTieneZoquete = true;
+                        ObjetosPorJugador.TieneZoquete = true;
+                    }
+                    Destroy(pickup.gameObject);
+                    break;
+                case 1:
+                    if (ObjetosPorJugador.TieneCasco)
+                        GameGUI.MjeYaTenesItem = true;
+                    else
+                    {
+                        GameGUI.MjeTieneCasco = true;
+                        ObjetosPorJugador.TieneCasco = true;
+                    }
+                    Destroy(pickup.gameObject);
+                    break;
+                case 2:
+                    if (ObjetosPorJugador.TieneZapato)
+                        GameGUI.MjeYaTenesItem = true;
+                    else
+                    {
+                        ObjetosPorJugador.TieneZapato = true;
+                        GameGUI.MensajeZapato = true;
+                    }
+                    Destroy(pickup.gameObject);
+                    break;
+            }
+            return;
+        }
+
+        if (pickup.CompareTag("Ducha"))
+        {
+            if (ObjetosPorJugador.TieneZoquete)
+                GameGUI.MjeDescontaminado = true;
+            ObjetosPorJugador.TieneZoquete = false;
+        }
+    }
+
+    static void IntentarPuerta()
+    {
+        if (ObjetosPorJugador.JugadorHaGanado || ObjetosPorJugador.JugadorHaPerdido)
+            return;
+
+        if (!ObjetosPorJugador.TieneTubo)
+        {
+            ObjetosPorJugador.TocandoPuerta = true;
+            return;
+        }
+
+        if (ObjetosPorJugador.TieneZoquete)
+        {
+            GameGUI.MjeContaminado = true;
+            return;
+        }
+
+        ObjetosPorJugador.JugadorHaGanado = true;
+        if (GestionaMultiJugador.Instancia != null)
+            GestionaMultiJugador.Instancia.TerminarJuego();
     }
 
     static Transform RaizPickup(Transform t)
