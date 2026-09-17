@@ -68,11 +68,11 @@ public static class ProjectBootstrap
         EditorApplication.delayCall += Bootstrap;
     }
 
-    [MenuItem("Monster Inc Run/Bootstrap Project")]
+    [MenuItem("Run Mike Run/Bootstrap Project")]
     static void MenuBootstrap()
     {
         Bootstrap();
-        Debug.Log("Monster Inc Run: bootstrap aplicado (build scenes, Play Mode, Mike Legacy, materiales).");
+        Debug.Log("Run Mike Run: bootstrap aplicado (build scenes, Play Mode, Mike Legacy, materiales).");
     }
 
     static void Bootstrap()
@@ -83,12 +83,55 @@ public static class ProjectBootstrap
         EnsureBuildScenes();
         EnsurePlayModeStartScene();
         EnsureMaterialsBesideFbx();
+        EnsureLargeModelIndices();
         EnsurePipeMetalTextures();
         EnsureFactoryAlbedos();
         EnsureGlassMaterials();
         ReimportMikeAsLegacy();
         EnsureUiSprites();
         EnsureEnvironmentAssets();
+    }
+
+    static void EnsureLargeModelIndices()
+    {
+        var folders = new[]
+        {
+            "Assets/Resources/Models",
+            "Assets/Resources/Environment"
+        };
+
+        foreach (var folder in folders)
+        {
+            if (!AssetDatabase.IsValidFolder(folder))
+                continue;
+
+            var modelGuids = AssetDatabase.FindAssets("t:Model", new[] { folder });
+            foreach (var guid in modelGuids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!path.EndsWith(".FBX", StringComparison.OrdinalIgnoreCase)
+                    && !path.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var importer = AssetImporter.GetAtPath(path) as ModelImporter;
+                if (importer == null)
+                    continue;
+
+                bool ok = importer.animationType == ModelImporterAnimationType.None
+                    && importer.avatarSetup == ModelImporterAvatarSetup.NoAvatar
+                    && importer.indexFormat == ModelImporterIndexFormat.UInt32
+                    && importer.isReadable;
+                if (ok)
+                    continue;
+
+                importer.animationType = ModelImporterAnimationType.None;
+                importer.avatarSetup = ModelImporterAvatarSetup.NoAvatar;
+                importer.indexFormat = ModelImporterIndexFormat.UInt32;
+                importer.isReadable = true;
+                importer.materialLocation = ModelImporterMaterialLocation.InPrefab;
+                importer.SaveAndReimport();
+            }
+        }
     }
 
     static void EnsureEnvironmentAssets()

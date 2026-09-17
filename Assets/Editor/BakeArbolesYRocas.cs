@@ -4,7 +4,7 @@ using UnityEngine;
 
 public static class BakeArbolesYRocas
 {
-    const string MenuPath = "Monster Inc Run/Bake Trees And Rocks Into Scene";
+    const string MenuPath = "Run Mike Run/Bake Trees And Rocks Into Scene";
     const string GameScenePath = "Assets/Scenes/Mike_Juego.unity";
 
     [MenuItem(MenuPath, false, 20)]
@@ -74,7 +74,7 @@ public static class BakeArbolesYRocas
         Selection.activeTransform = padre;
         EditorGUIUtility.PingObject(padre.gameObject);
 
-        Debug.Log("Monster Inc Run: " + n + " árboles/rocas en Entorno/ArbolesYRocas.");
+        Debug.Log("Run Mike Run: " + n + " árboles/rocas en Entorno/ArbolesYRocas.");
 
         if (!mostrarDialogos)
             return;

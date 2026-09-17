@@ -31,14 +31,16 @@ public class SpawnJugador : MonoBehaviour
             player.GetComponent<Renderer>().material.color = new Color(0.45f, 0.85f, 0.25f);
         }
 
+        AjustarAlSuelo(player, pos);
+
         player.name = "Mike";
         player.tag = "Player";
         player.layer = 0;
 
         if (!player.TryGetComponent(out CharacterController cc))
             cc = player.AddComponent<CharacterController>();
-        cc.height = 2f;
-        cc.center = new Vector3(0, 1f, 0);
+        cc.height = 1.8f;
+        cc.center = new Vector3(0f, 0.75f, 0f);
         cc.radius = 0.4f;
         cc.detectCollisions = true;
         cc.skinWidth = 0.08f;
@@ -93,9 +95,37 @@ public class SpawnJugador : MonoBehaviour
         var cc = player.GetComponent<CharacterController>();
         if (cc != null)
             cc.enabled = false;
-        player.SetPositionAndRotation(pos, rot);
+        AjustarAlSuelo(player.gameObject, pos);
+        player.rotation = rot;
         if (cc != null)
             cc.enabled = true;
+    }
+
+    static void AjustarAlSuelo(GameObject player, Vector3 pos)
+    {
+        if (player == null)
+            return;
+
+        float groundY = AmbienteTerreno.AlturaEn(new Vector3(pos.x, 0f, pos.z));
+        float minY = float.PositiveInfinity;
+        var renderers = player.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            var r = renderers[i];
+            if (r == null || !r.enabled)
+                continue;
+            if (r.bounds.min.y < minY)
+                minY = r.bounds.min.y;
+        }
+
+        if (float.IsPositiveInfinity(minY))
+        {
+            player.transform.position = new Vector3(pos.x, groundY + 0.02f, pos.z);
+            return;
+        }
+
+        float ajusteY = groundY - minY;
+        player.transform.position = new Vector3(pos.x, pos.y + ajusteY, pos.z);
     }
 
     static void AsegurarAnimacion(GameObject player)

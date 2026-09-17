@@ -4,7 +4,7 @@ using UnityEngine;
 
 public static class BakeTerreno
 {
-    const string MenuPath = "Monster Inc Run/Bake Terrain Into Scene";
+    const string MenuPath = "Run Mike Run/Bake Terrain Into Scene";
     const string GameScenePath = "Assets/Scenes/Mike_Juego.unity";
 
     [MenuItem(MenuPath, false, 21)]
@@ -69,7 +69,7 @@ public static class BakeTerreno
             EditorGUIUtility.PingObject(terrain.gameObject);
         }
 
-        Debug.Log("Monster Inc Run: terreno horneado en Entorno/Terreno (TerrainData en Resources/Terrain).");
+        Debug.Log("Run Mike Run: terreno horneado en Entorno/Terreno (TerrainData en Resources/Terrain).");
 
         if (!mostrarDialogos)
         {

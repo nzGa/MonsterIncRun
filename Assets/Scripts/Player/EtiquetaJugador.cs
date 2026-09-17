@@ -15,22 +15,20 @@ public class EtiquetaJugador : MonoBehaviour
         var holder = new GameObject("NombreChip");
         holder.transform.SetParent(transform, false);
         holder.transform.localPosition = new Vector3(0f, AlturaSobreCabeza(), 0f);
-
-        var ls = transform.lossyScale;
-        const float world = 0.0048f;
-        holder.transform.localScale = new Vector3(
-            world / Mathf.Max(Mathf.Abs(ls.x), 1e-4f),
-            world / Mathf.Max(Mathf.Abs(ls.y), 1e-4f),
-            world / Mathf.Max(Mathf.Abs(ls.z), 1e-4f));
+        holder.transform.localScale = Vector3.one * 0.008f;
 
         var canvas = holder.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
         canvas.overrideSorting = true;
         canvas.sortingOrder = 80;
+        canvas.planeDistance = 0.6f;
+        var raycaster = holder.AddComponent<GraphicRaycaster>();
+        raycaster.enabled = false;
         AsignarCamara(canvas);
+
         var rt = holder.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(110f, 26f);
-        rt.pivot = new Vector2(0.5f, 0f);
+        rt.sizeDelta = new Vector2(90f, 20f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
 
         var chip = UiFactory.AddPanelFixed(
             holder.transform,
@@ -38,32 +36,32 @@ public class EtiquetaJugador : MonoBehaviour
             new Vector2(0.5f, 0.5f),
             new Vector2(0.5f, 0.5f),
             Vector2.zero,
-            new Vector2(108f, 24f),
+            new Vector2(88f, 18f),
             new Color(0.05f, 0.07f, 0.07f, 0.82f));
 
         var text = UiFactory.AddText(
             chip.transform,
             "Nombre",
             NombreVisible(),
-            15,
+            12,
             TextAnchor.MiddleCenter,
             new Color(0.96f, 0.98f, 0.94f, 1f),
             true,
             FontStyle.Bold);
         UiFactory.Stretch(text.rectTransform);
-        text.rectTransform.offsetMin = new Vector2(6f, 1f);
-        text.rectTransform.offsetMax = new Vector2(-6f, -1f);
+        text.rectTransform.offsetMin = new Vector2(4f, 1f);
+        text.rectTransform.offsetMax = new Vector2(-4f, -1f);
         text.horizontalOverflow = HorizontalWrapMode.Overflow;
         text.verticalOverflow = VerticalWrapMode.Overflow;
         text.resizeTextForBestFit = true;
-        text.resizeTextMinSize = 10;
-        text.resizeTextMaxSize = 15;
-        UiFactory.AddOutline(text, new Color(0f, 0f, 0f, 0.7f), new Vector2(0.8f, -0.8f));
+        text.resizeTextMinSize = 8;
+        text.resizeTextMaxSize = 12;
+        UiFactory.AddOutline(text, new Color(0f, 0f, 0f, 0.7f), new Vector2(0.5f, -0.5f));
 
         _label = text;
         _canvas = canvas;
         _billboard = holder.transform;
-        ChipMundoListo = Camera.main != null;
+        ChipMundoListo = GetCamera() != null;
     }
 
     void OnDestroy()
@@ -77,18 +75,19 @@ public class EtiquetaJugador : MonoBehaviour
         if (_label != null)
             _label.text = NombreVisible();
 
+        var cam = GetCamera();
         if (_canvas != null)
-            AsignarCamara(_canvas);
+            AsignarCamara(_canvas, cam);
 
         if (_billboard == null)
             return;
 
-        _billboard.localPosition = new Vector3(0f, AlturaSobreCabeza(), 0f);
+        _billboard.localPosition = new Vector3(0f, Mathf.Max(1.2f, AlturaSobreCabeza() - 0.25f), 0f);
 
-        if (Camera.main == null)
+        if (cam == null)
             return;
 
-        _billboard.rotation = Camera.main.transform.rotation;
+        _billboard.rotation = Quaternion.LookRotation(-cam.transform.forward, Vector3.up);
         ChipMundoListo = true;
     }
 
@@ -144,11 +143,26 @@ public class EtiquetaJugador : MonoBehaviour
         return null;
     }
 
-    static void AsignarCamara(Canvas canvas)
+    static Camera GetCamera()
     {
-        if (canvas == null || Camera.main == null)
+        if (Camera.main != null)
+            return Camera.main;
+
+        var cam = UnityEngine.Object.FindAnyObjectByType<Camera>();
+        return cam != null ? cam : null;
+    }
+
+    static void AsignarCamara(Canvas canvas, Camera cam = null)
+    {
+        if (canvas == null)
             return;
-        canvas.worldCamera = Camera.main;
+
+        if (cam == null)
+            cam = GetCamera();
+        if (cam == null)
+            return;
+
+        canvas.worldCamera = cam;
     }
 
     string NombreVisible()

@@ -31,6 +31,10 @@ public class GestionaMultiJugador : MonoBehaviour
 
     void Awake()
     {
+        var nombreGuardado = PlayerPrefs.GetString("NombreJugador", "Mike");
+        if (!string.IsNullOrWhiteSpace(nombreGuardado))
+            nombreJugador = nombreGuardado;
+
         Instancia = this;
     }
 
