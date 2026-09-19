@@ -111,28 +111,28 @@ public class GestionaMultiJugador : MonoBehaviour
     {
         _pauseCanvas = UiFactory.CreateCanvas("PauseCanvas", 50);
         _pauseRoot = _pauseCanvas.gameObject;
-        var dim = UiFactory.AddImage(_pauseRoot.transform, "Dim", Vector2.zero, Vector2.one, new Color(0, 0, 0, 0.65f));
+        var dim = UiFactory.AddImage(_pauseRoot.transform, "Dim", Vector2.zero, Vector2.one, new Color(0, 0, 0, 0.68f));
         dim.raycastTarget = true;
 
-        var panel = UiFactory.AddPanel(_pauseRoot.transform, "Panel", new Vector2(0.34f, 0.28f), new Vector2(0.66f, 0.72f), new Color(0.06f, 0.08f, 0.06f, 0.94f));
+        var panel = UiFactory.AddPanel(_pauseRoot.transform, "Panel", new Vector2(0.28f, 0.22f), new Vector2(0.72f, 0.78f), new Color(0.06f, 0.10f, 0.09f, 0.94f));
 
-        var titulo = UiFactory.AddText(panel.transform, "Titulo", "Pausa", 40, TextAnchor.MiddleCenter, Color.white, true, FontStyle.Bold);
+        var titulo = UiFactory.AddText(panel.transform, "Titulo", "Pausa", 44, TextAnchor.MiddleCenter, Color.white, true, FontStyle.Bold);
         var tituloRt = titulo.rectTransform;
-        tituloRt.anchorMin = new Vector2(0.08f, 0.84f);
-        tituloRt.anchorMax = new Vector2(0.92f, 0.98f);
+        tituloRt.anchorMin = new Vector2(0.12f, 0.82f);
+        tituloRt.anchorMax = new Vector2(0.88f, 0.95f);
         tituloRt.offsetMin = Vector2.zero;
         tituloRt.offsetMax = Vector2.zero;
         titulo.verticalOverflow = VerticalWrapMode.Truncate;
 
-        var hint = UiFactory.AddText(panel.transform, "Hint", "Esc para continuar", 18, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f), true);
+        var hint = UiFactory.AddText(panel.transform, "Hint", "Esc para continuar", 24, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.85f), true);
         var hintRt = hint.rectTransform;
-        hintRt.anchorMin = new Vector2(0.08f, 0.72f);
-        hintRt.anchorMax = new Vector2(0.92f, 0.84f);
+        hintRt.anchorMin = new Vector2(0.12f, 0.68f);
+        hintRt.anchorMax = new Vector2(0.88f, 0.79f);
         hintRt.offsetMin = Vector2.zero;
         hintRt.offsetMax = Vector2.zero;
         hint.verticalOverflow = VerticalWrapMode.Truncate;
 
-        var volver = UiFactory.AddButton(panel.transform, "Volver", "Volver al juego", new Vector2(0, 20), new Vector2(320, 56));
+        var volver = UiFactory.AddButton(panel.transform, "Volver", "Volver al juego", new Vector2(0, 42f), new Vector2(360f, 60f));
         volver.onClick.AddListener(() =>
         {
             muestraVentanaEstadoCliente = false;
@@ -141,7 +141,7 @@ public class GestionaMultiJugador : MonoBehaviour
             AplicarCursor();
         });
 
-        var menu = UiFactory.AddButton(panel.transform, "Menu", "Menú principal", new Vector2(0, -50), new Vector2(320, 56));
+        var menu = UiFactory.AddButton(panel.transform, "Menu", "Menú principal", new Vector2(0, -30f), new Vector2(360f, 60f));
         menu.onClick.AddListener(() =>
         {
             cursorBloqueado = false;
@@ -149,7 +149,7 @@ public class GestionaMultiJugador : MonoBehaviour
             SceneManager.LoadScene("MainMenu");
         });
 
-        var salir = UiFactory.AddButton(panel.transform, "Salir", "Salir", new Vector2(0, -120), new Vector2(320, 56));
+        var salir = UiFactory.AddButton(panel.transform, "Salir", "Salir", new Vector2(0, -102f), new Vector2(360f, 60f));
         salir.onClick.AddListener(UiFactory.Salir);
 
         _pauseRoot.SetActive(false);

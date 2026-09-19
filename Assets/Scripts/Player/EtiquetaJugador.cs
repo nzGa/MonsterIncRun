@@ -16,6 +16,7 @@ public class EtiquetaJugador : MonoBehaviour
         holder.transform.SetParent(transform, false);
         holder.transform.localPosition = new Vector3(0f, AlturaSobreCabeza(), 0f);
         holder.transform.localScale = Vector3.one * 0.008f;
+        holder.transform.localRotation = Quaternion.identity;
 
         var canvas = holder.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
@@ -82,12 +83,15 @@ public class EtiquetaJugador : MonoBehaviour
         if (_billboard == null)
             return;
 
-        _billboard.localPosition = new Vector3(0f, Mathf.Max(1.2f, AlturaSobreCabeza() - 0.25f), 0f);
+        _billboard.localPosition = new Vector3(0f, Mathf.Max(0.5f, AlturaSobreCabeza() - 0.5f), 0f);
 
         if (cam == null)
             return;
 
-        _billboard.rotation = Quaternion.LookRotation(-cam.transform.forward, Vector3.up);
+        var dirToCamera = _billboard.position - cam.transform.position;
+        if (dirToCamera.sqrMagnitude > 0.0001f)
+            _billboard.rotation = Quaternion.LookRotation(dirToCamera, Vector3.up);
+
         ChipMundoListo = true;
     }
 

@@ -3,8 +3,8 @@
 // Orbits Camera.main around this transform. Mouse yaw never rotates the player.
 public class MouseOrbit : MonoBehaviour
 {
-    public float alturaOjos = 0.6f;
-    public float cameraIniDistance = 2;
+    public float alturaOjos = 2.1f;
+    public float cameraIniDistance = 4.5f;
     public float xSpeed = 250f;
     public float ySpeed = 120f;
     public float yMaxLimit = 50;
@@ -72,7 +72,9 @@ public class MouseOrbit : MonoBehaviour
     {
         Quaternion rotation = Quaternion.Euler(_mouseY, _mouseX, 0f);
         Vector3 position = rotation * new Vector3(0f, alturaOjos, -_relativeDistance) + transform.position;
-        _mainCamera.SetPositionAndRotation(position, rotation);
+        Vector3 target = transform.position + Vector3.up * 1.2f;
+        Quaternion lookRotation = Quaternion.LookRotation(target - position, Vector3.up);
+        _mainCamera.SetPositionAndRotation(position, lookRotation);
     }
 
     static float ClampAngle(float angle, float min, float max)
