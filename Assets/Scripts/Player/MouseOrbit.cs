@@ -4,7 +4,7 @@
 public class MouseOrbit : MonoBehaviour
 {
     public float alturaOjos = 0.6f;
-    public float cameraIniDistance = 2;
+    public float cameraIniDistance = 4.5f;
     public float xSpeed = 250f;
     public float ySpeed = 120f;
     public float yMaxLimit = 50;
