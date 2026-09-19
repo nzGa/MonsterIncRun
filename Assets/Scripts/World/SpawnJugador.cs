@@ -31,7 +31,6 @@ public class SpawnJugador : MonoBehaviour
             player.GetComponent<Renderer>().material.color = new Color(0.45f, 0.85f, 0.25f);
         }
 
-        NormalizarRaizAlPies(player);
         AjustarAlSuelo(player, pos);
 
         player.name = "Mike";
@@ -41,7 +40,7 @@ public class SpawnJugador : MonoBehaviour
         if (!player.TryGetComponent(out CharacterController cc))
             cc = player.AddComponent<CharacterController>();
         cc.height = 1.8f;
-        cc.center = new Vector3(0f, cc.height * 0.5f, 0f);
+        cc.center = new Vector3(0f, 0.75f, 0f);
         cc.radius = 0.4f;
         cc.detectCollisions = true;
         cc.skinWidth = 0.08f;
@@ -102,45 +101,31 @@ public class SpawnJugador : MonoBehaviour
             cc.enabled = true;
     }
 
-    static void NormalizarRaizAlPies(GameObject player)
-    {
-        if (player == null)
-            return;
-
-        Bounds bounds = default;
-        bool tieneBounds = false;
-        var renderers = player.GetComponentsInChildren<Renderer>(true);
-        for (int i = 0; i < renderers.Length; i++)
-        {
-            var r = renderers[i];
-            if (r == null || !r.enabled)
-                continue;
-            if (!tieneBounds)
-            {
-                bounds = r.bounds;
-                tieneBounds = true;
-                continue;
-            }
-            bounds.Encapsulate(r.bounds);
-        }
-
-        if (!tieneBounds)
-            return;
-
-        float offset = -bounds.min.y;
-        if (Mathf.Abs(offset) > 0.0001f)
-            player.transform.position += Vector3.up * offset;
-    }
-
     static void AjustarAlSuelo(GameObject player, Vector3 pos)
     {
         if (player == null)
             return;
 
         float groundY = AmbienteTerreno.AlturaEn(new Vector3(pos.x, 0f, pos.z));
-        var cc = player.GetComponent<CharacterController>();
-        float controllerBottomOffset = cc != null ? cc.center.y - cc.height * 0.5f : 0f;
-        player.transform.position = new Vector3(pos.x, groundY - controllerBottomOffset, pos.z);
+        float minY = float.PositiveInfinity;
+        var renderers = player.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            var r = renderers[i];
+            if (r == null || !r.enabled)
+                continue;
+            if (r.bounds.min.y < minY)
+                minY = r.bounds.min.y;
+        }
+
+        if (float.IsPositiveInfinity(minY))
+        {
+            player.transform.position = new Vector3(pos.x, groundY + 0.02f, pos.z);
+            return;
+        }
+
+        float ajusteY = groundY - minY;
+        player.transform.position = new Vector3(pos.x, pos.y + ajusteY, pos.z);
     }
 
     static void AsegurarAnimacion(GameObject player)
