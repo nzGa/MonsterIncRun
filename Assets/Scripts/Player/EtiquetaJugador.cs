@@ -83,7 +83,7 @@ public class EtiquetaJugador : MonoBehaviour
         if (_billboard == null)
             return;
 
-        _billboard.localPosition = new Vector3(0f, Mathf.Max(1.2f, AlturaSobreCabeza() - 0.25f), 0f);
+        _billboard.localPosition = new Vector3(0f, Mathf.Max(0.5f, AlturaSobreCabeza() - 0.5f), 0f);
 
         if (cam == null)
             return;
